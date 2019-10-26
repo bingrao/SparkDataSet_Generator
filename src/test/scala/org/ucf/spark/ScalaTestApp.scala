@@ -39,9 +39,18 @@ class ScalaTestAPP extends common.Common {
     val s12 = "SELECT T1.Aircraft FROM aircraft AS T1 JOIN MATCH AS T2 ON T1.Aircraft_ID  =  T2.Winning_Aircraft GROUP BY T2.Winning_Aircraft ORDER BY COUNT(*) DESC LIMIT 1"
     val s13 = "SELECT venue FROM MATCH ORDER BY date DESC"
     val s14 = "SELECT Aircraft FROM aircraft WHERE Aircraft_ID NOT IN (SELECT Winning_Aircraft FROM MATCH)"
+    val s15 = "SELECT count(DISTINCT temporary_acting) FROM management"
+    val s16 = "INPUT SQL: SELECT head_id ,  name FROM head WHERE name LIKE '%Ha%'"
 //    logger.info(s"INPUT: ${s8}")
     logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s13))
   }
+
+  @Test def testParseSQL_s3(): Unit = {
+    val s3 = "SELECT max(budget_in_billions) ,  min(budget_in_billions) FROM department"
+    logger.info(s"INPUT: ${s3}")
+    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s3))
+  }
+
 
 
 

@@ -23,6 +23,7 @@ object SpiderFileReader {
         if (query.split(" ").contains("MATCH")) reg = false
         if (query.split(" ").contains("CHARACTER")) reg = false
         if (query.split(" ").contains("NOT")) reg = false
+        if (query.split(" ").contains("HAVING")) reg = false
         if (query.contains("ORDER BY COUNT(*)  >=  5")) reg = false
         reg
       })

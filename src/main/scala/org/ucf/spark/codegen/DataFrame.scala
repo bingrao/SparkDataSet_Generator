@@ -6,8 +6,10 @@ import net.sf.jsqlparser.statement.select._
 
 object DataFrame extends common.EnrichedTrees {
   def codeGen(sql:String):String = {
+
     logger.debug("\n\n******************************************")
     logger.debug("INPUT SQL: " + sql)
+
     val statement = CCJSqlParserUtil.parse(sql)
     val dataframe = new StringBuilder()
     if (statement.isInstanceOf[Select]) {
