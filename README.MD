@@ -1,51 +1,146 @@
-You can use following maven commands to run your application.
-#Run Java Program
-```
-mvn exec:java -Dexec.mainClass="com.jhh.Main"  
-mvn exec:java -Dexec.mainClass="akka.Main" -Dexec.args="com.jhh.HelloWorld" 
-```
+## Sql to DataFrame Generator 
 
-#Run Scala Program
-```
-mvn scala:run -DmainClass=com.jhh.App -DaddArgs="arg1|arg2|arg3"
-```
+Supported Sql: SAS and Hive
 
-#Assembly all project into a single jar file 
-```
-mvn clean compile assembly:single
+### Aim : 
 
-or
+To convert most of the sql queries to Spark DataFrames(scala) and reduce copy paste work of developers while doing the same.
 
-mvn clean compile package
-```
-After the above command, there are two jar files would be generated: 
-1. a jar file with all depandent packages
-2. a single jar file only containing the project source code
+### Motivation :
 
-#Change main and premain class file in pom file
-You need to revise the pom file to specify a new main/premain 
-class entry if you want to a new one in your code. The default
-value is "org.ucf.spark.ScalaApp"
+Spark DataFrames provide high performance and reduce cost. So, I converted Many SQL(Hive and SAS) scripts to spark DataFrames.
+During conversion of sql to DataFrames I observed a similar pattern in every sql conversion.
+I created this project which converts SQL to DataFrame.
 
-There are two properties in the pom file
-1. **project.main.class**:  Set the main entry  of all project 
-2. **project.main.class**:  Set the premain entry of Java instrumenttion
+It converts complex nested SQL, arithmetic expressions and nested functions, to spark DataFrame's.
+Sample Example is provided below.
 
 
-# Execute jar file
-```
-java -cp {all needed depandency package } -jar {the target jar file} 
-```
-For example 
+### Why to convert to DataFrames when we can run SQL in spark mode
+
+Advantages of DataFrame over sql:-
+
+* Advantage to write UDF and UDAF using FP's of scala.
+
+* Better type safe than sql.
+
+* Using functional programming API we can define filters or Select statement at runtime.
+
+* Splitting complex sql to small data frames used for optimizations.
+
+* Decrease load over meta store.
+
+### Sample Examples:
+
+#### Input SAS sql
 
 ```
-$ pwd
-/Users/Bing/Documents/workspace/test
-$ ls
-README.MD	pom.xml		src		target		test.iml
-$ java -jar target/test-1.0-SNAPSHOT-jar-with-dependencies.jar 
-Hello World from Scala
+CREATE TABLE STUDENT_TEMP AS
+        SELECT
+         	DISTINCT student_id AS id,
+              weight||'_'||(CASE
+           WHEN WEIGHT BETWEEN 0 AND 50 THEN 'LOW'
+           WHEN WEIGHT BETWEEN 51 AND 70 THEN 'MEDIUM'
+           WHEN WEIGHT BETWEEN 71 AND 100 THEN 'HIGH'
+           ELSE 'VERY HIGH'
+           END) AS NEWWEIGHT
+         FROM
+           STUDENT;
+           
 ```
 
-In the pom file,  "{package}.ScalaApp" is set as the main entry class of the project. 
-If you want to switch to "{package}.JavaApp", you just modify pom file
+#### output dataframe
+
+```
+val STUDENT_TEMP = student. 
+ select($"student_id".as("id"),concat($"weight",lit("_"),
+    when($"weight".between(lit(0),lit(50)),lit("low")).
+     otherwise(when($"weight".between(lit(51),lit(70)),lit("medium")).
+     otherwise(when($"weight".between(lit(71),lit(100)),lit("high")).
+     otherwise(lit("very high"))))).as("newweight")).
+  distinct 
+```
+
+#### Input Nested SAS sql
+
+```
+CREATE TABLE STUDENT_TEMP AS
+        SELECT
+         	DISTINCT student_id AS id,
+              weight||'_'||(CASE
+           WHEN WEIGHT BETWEEN 0 AND 50 THEN 'LOW'
+           WHEN WEIGHT BETWEEN 51 AND 70 THEN 'MEDIUM'
+           WHEN WEIGHT BETWEEN 71 AND 100 THEN 'HIGH'
+           ELSE 'VERY HIGH'
+           END) AS NEWWEIGHT
+         FROM
+           (SELECT * FROM STUDENT WHERE student_id is not null);
+           
+```
+
+#### output dataframes
+
+```
+val STUDENT_TEMP_a = student.
+filter($"STUDENT_ID".isNotNull). 
+ select($"*") 
+ 
+val STUDENT_TEMP = STUDENT_TEMP_a.as("a"). 
+ select($"student_id".as("id"),concat($"weight",lit("_"),when($"weight".between(lit(0),lit(50)),lit("low")).
+    otherwise(when($"weight".between(lit(51),lit(70)),lit("medium")).
+    otherwise(when($"weight".between(lit(71),lit(100)),lit("high")).
+    otherwise(lit("very high"))))).as("newweight")).
+ distinct 
+ 
+```
+
+### Flow of the code
+
+![Cat](https://github.com/mvamsichaitanya/sql-to-dataframe-generator/blob/master/src/main/resources/images/sql-to-dataframe-generator.jpg)
+
+
+### How to use:
+
+#### first procedure
+
+1. Clone the code from git
+
+
+2. Edit the properties file in Config.scala(No extra config required to differentiate hive or sas)(configs kept in scala file as user will be Data Engineer)
+
+
+3. Edit SasSqlToSparkSql.scala and SqltoDf.scala to iterate each sql according to your input.
+
+
+4. Run the MainRun.scala class
+
+#### second procedure
+
+1. Add jar to the class path.
+
+2. Instantiate io.github.mvamsichaitanya.codeconversion.sqltodataframe.DataFrame by passing select statement to it.
+
+3. toString method will return DataFrame code
+
+### Note
+
+1. No Create table statements should be present as below in the input file.
+
+```
+Create table table_1(column_1 int,
+
+                      column_2 bigint,
+                      
+                        column_3 string);
+
+```
+
+2. No Union all Queries
+
+3. It will not convert to DataFrames with 100% accuracy. Developer should validate with SQL after conversion.
+
+
+
+### LICENSE
+
+[MIT](https://github.com/mvamsichaitanya/sql-to-dataframe-generator/blob/master/LICENSE)

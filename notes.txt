@@ -1,0 +1,29 @@
+SELECT City FROM Customers UNION SELECT City FROM Suppliers ORDER BY City;
+INSERT INTO Customers (CustomerName, City, Country) VALUES ('Cardinal', 'Stavanger', 'Norway');
+SELECT Orders.OrderID, Customers.CustomerName, Orders.OrderDate FROM Orders INNER JOIN Customers ON Orders.CustomerID=Customers.CustomerID;
+
+
+WITH temporaryTable (averageValue) as (SELECT avg(Attr1) FROM Table), SELECT Attr1 FROM Table WHERE Table.Attr1 > temporaryTable.averageValue;
+
+
+Select id,name,age From Student Where age < 15 Union Select id,name,age From Student Where Name like "%a%" Order by name
+
+"SELECT T1.creation FROM department AS T1 JOIN management AS T2 ON T1.department_id  =  T2.department_id JOIN head AS T3 ON T2.head_id  =  T3.head_id WHERE T3.born_state  =  'Alabama'"
+
+SELECT T1.creation FROM department AS T1 WHERE T1.born_state  =  'Alabama'
+
+val sql = "SELECT City FROM Customers"
+val sql = "SELECT T1.creation FROM department AS T1 WHERE T1.born_state  =  'Alabama'"
+val sql = "SELECT MAX (mycount) FROM (SELECT agent_code,COUNT(agent_code) mycount FROM orders GROUP BY agent_code);"
+val sql = "SELECT T1.creation FROM department AS T1 WHERE T1.born_state  =  'Alabama'"
+val sql = "SELECT T1.creation FROM (department AS T1 JOIN management AS T2 ON T1.department_id  =  T2.department_id JOIN head AS T3 ON T2.head_id  =  T3.head_id) WHERE T3.born_state  =  'Alabama'"
+
+
+val sql = "SELECT order_details.order_id, customers.customer_name FROM customers INNER JOIN order_details ON customers.customer_id = order_details.customer_id;"
+
+val statement = CCJSqlParserUtil.parse(sql)
+val body = statement.asInstanceOf[Select].getSelectBody.asInstanceOf[PlainSelect]
+
+body.getFromItem.isInstanceOf[SubSelect]
+
+val sql = "SELECT City, count(a), t1.b FROM Customers as t1"
