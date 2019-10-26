@@ -3,10 +3,10 @@ package org.ucf.spark
 /**
   * @author 
   */
-object ScalaApp {
-  val log = new org.ucf.spark.utils.Log(this.getClass.getName)
-  def printHello() =  log.info("Hello World from Scala")
+object ScalaApp extends common.Common {
   def main(args: Array[String]): Unit = {
-    printHello()
+    logger.info("Start Converst SQL to Spark DataFrame ...")
+    implement.SpiderFileReader.parser()
+    logger.info("Conversation is over!!")
   }
 }

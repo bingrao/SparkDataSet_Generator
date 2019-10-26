@@ -15,11 +15,11 @@ trait EnrichedTrees extends Common {
   /*********************************************************************************************************/
   /*******************************   Global Varibles to Record info ****************************************/
   /*********************************************************************************************************/
-  val regEmpty:String = ""
-  var tableList:mutable.HashMap[String, String] = new mutable.HashMap[String, String]() // (alias -> name)
-  var joinList = new ListBuffer[Join]()
-  var selectList = new ListBuffer[SelectItem]()
-
+  val regEmpty:String = ""  // recursive function return value for gencode func in implicit class
+  var tableList:mutable.HashMap[String, String] = // A record (alias -> name)
+    new mutable.HashMap[String, String]()
+  var joinList = new ListBuffer[Join]() // All Join list
+  var selectList = new ListBuffer[SelectItem]() // All select list
 
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
@@ -49,12 +49,13 @@ trait EnrichedTrees extends Common {
           logger.info("Select Body Error: " + body)
         }
       }
+      resetEnvironment()   // Reset environment for next run
       regEmpty
     }
   }
   implicit class genPlainSelect(body:PlainSelect){
     def genCode(df:mutable.StringBuilder):String  = {
-      logger.debug("PlainSelect:" + body)
+//      logger.debug("PlainSelect:" + body)
       selectList.addAll(body.getSelectItems.toList)
       if (body.getFromItem != null) genCodeFrom(body.getFromItem, df)
       if (body.getJoins != null) genCodeJoins(body.getJoins.toList, df)
@@ -64,10 +65,10 @@ trait EnrichedTrees extends Common {
       if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList, df)
       if (body.getDistinct != null) genCodeDistinct(body.getDistinct, df)
       if (body.getLimit != null) genCodeLimit(body.getLimit, df)
-
-      tableList.foreach(list => logger.debug(list.toString(), true))
-      joinList.foreach(list => logger.debug(list.toString(), true))
-      selectList.foreach(list => logger.debug(list.toString(), true))
+      
+      logger.debug("[Table<Alias, Name>] " + tableList.mkString(","))
+      logger.debug("[Join] " + joinList.mkString(","))
+      logger.debug("[Select] " +selectList.mkString(","))
 
       regEmpty
     }
@@ -121,26 +122,45 @@ trait EnrichedTrees extends Common {
       regEmpty
     }
   }
-
-
   implicit class genSetOperationList(body: SetOperationList){
     def genCode(df:mutable.StringBuilder):String = {
-      logger.debug("SetOperationList:" + body)
+//      logger.debug("SetOperationList:" + body)
       val selects = body.getSelects.toList
       val operations = body.getOperations.toList
-      val orderByElements = body.getOrderByElements.toList
-      val limit = body.getLimit
+      val brackets = body.getBrackets
 
-      selects.foreach(body => body.genCode(df))
-      if(orderByElements != null) genCodeOrderBy(orderByElements, df)
+      for(i <- 0 to (selects.size - 1)) {
+        if (i != 0) {
+          val op = operations.get(i - 1).toString().toLowerCase
+          if (op.equals("minus")) throw new UnsupportedOperationException("Unsupport Operation")
+          df.append(" ").append(op).append(" ")
+        }
+        if (brackets == null || brackets.get(i)) {
+          df.append("(")
+          selects.get(i).genCode(df)
+          df.append(")")
+        } else {
+          selects.get(i).genCode(df)
+        }
+      }
+
+      val orderByElements = body.getOrderByElements
+      if(orderByElements != null) genCodeOrderBy(orderByElements.toList, df)
+
+      val limit = body.getLimit
       if(limit != null) genCodeLimit(limit, df)
+
+      val offset = body.getOffset
+      if (offset != null) df.append(offset.toString())
+
+      val fetch = body.getFetch
+      if (fetch != null) df.append(fetch.toString())
+
       regEmpty
     }
   }
 
-  /*********************************************************************************************************/
-  /****************************************   Helper Functions *********************************************/
-  /*********************************************************************************************************/
+
   def genCodeFrom(from:FromItem ,df:mutable.StringBuilder)  = {
     from match {
       case subjoin:SubJoin => {
@@ -245,8 +265,14 @@ trait EnrichedTrees extends Common {
     val nums = getExpressionString(limit.getRowCount)
     df.append(s".takeAsList($nums)")
   }
+
+
+  /*********************************************************************************************************/
+  /****************************************   Helper Functions *********************************************/
+  /*********************************************************************************************************/
   def getTableName(table: Table) = table.getName
   def getExpressionString(expression: Expression):String  = {
+    if (expression == null) return regEmpty
     expression match {
       case column: Column => {
         val colName = column.getColumnName
@@ -276,5 +302,11 @@ trait EnrichedTrees extends Common {
       tableList +=(table.getAlias.getName -> table.getName)
     else
       tableList +=(table.getName -> table.getName)
+  }
+
+  def resetEnvironment(): Unit ={
+    this.tableList = new mutable.HashMap[String, String]()
+    this.joinList = new ListBuffer[Join]()
+    this.selectList = new ListBuffer[SelectItem]()
   }
 }

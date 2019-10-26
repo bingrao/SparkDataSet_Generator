@@ -11,14 +11,38 @@ class ScalaTestAPP extends common.Common {
     logger.info("Hello World From Scala")
     assertTrue(true)
   }
-  @Test def testParseSQL(): Unit = {
+
+
+
+  val s3 = "SELECT Orders.OrderID, Customers.CustomerName, Orders.OrderDate FROM Orders INNER JOIN Customers ON Orders.CustomerID=Customers.CustomerID;"
+  val s4 = "SELECT City FROM Customers"
+  val s5 = "SELECT T1.creation FROM department AS T1 JOIN management AS T2 ON T1.department_id  =  T2.department_id JOIN head AS T3 ON T2.head_id  =  T3.head_id WHERE T3.born_state  =  'Alabama'"
+  val s6 = "SELECT Shippers.ShipperName, COUNT(Orders.OrderID) AS NumberOfOrders FROM Orders LEFT JOIN Shippers ON Orders.ShipperID = Shippers.ShipperID GROUP BY ShipperName;"
+
+  @Test def testParseSQL_s1(): Unit = {
     val s1 = "SELECT City FROM Customers UNION SELECT City FROM Suppliers ORDER BY City LIMIT 10;"
-    val s2 = "SELECT * FROM Suppliers ORDER BY City, County LIMIT 10;"
-    val s3 = "SELECT Orders.OrderID, Customers.CustomerName, Orders.OrderDate FROM Orders INNER JOIN Customers ON Orders.CustomerID=Customers.CustomerID;"
-    val s4 = "SELECT City FROM Customers"
-    val s5 = "SELECT T1.creation FROM department AS T1 JOIN management AS T2 ON T1.department_id  =  T2.department_id JOIN head AS T3 ON T2.head_id  =  T3.head_id WHERE T3.born_state  =  'Alabama'"
-    val s6 = "SELECT Shippers.ShipperName, COUNT(Orders.OrderID) AS NumberOfOrders FROM Orders LEFT JOIN Shippers ON Orders.ShipperID = Shippers.ShipperID GROUP BY ShipperName;"
-    val df = new dataframe.DataFrame
-    logger.info(df.codeGen(s5))
+    logger.info(s"INPUT: ${s1}")
+    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s1))
   }
+
+  @Test def testParseSQL_s2(): Unit = {
+    val s2 = "SELECT * FROM Suppliers ORDER BY City, County LIMIT 10;"
+    logger.info(s"INPUT: ${s2}")
+    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s2))
+  }
+  @Test def testParseSQL_s7(): Unit = { // cannot parse since >= in order by
+    val s7 = "SELECT T2.name FROM Certificate AS T1 JOIN Aircraft AS T2 ON T2.aid  =  T1.aid WHERE T2.distance  >  5000 GROUP BY T1.aid ORDER BY count(*)  >=  5"
+    val s8 = "SELECT appointmentid FROM appointment ORDER BY START DESC LIMIT 1" //start
+    val s9 = "SELECT Character, Duration FROM actor" //
+    val s10 = "SELECT T1.name FROM patient AS T1 JOIN appointment AS T2 ON T1.ssn = T2.patient ORDER BY T2.start DESC LIMIT 1" // start
+    val s11 = "SELECT T2.Location ,  T1.Aircraft FROM aircraft AS T1 JOIN MATCH AS T2 ON T1.Aircraft_ID  =  T2.Winning_Aircraft" //match
+    val s12 = "SELECT T1.Aircraft FROM aircraft AS T1 JOIN MATCH AS T2 ON T1.Aircraft_ID  =  T2.Winning_Aircraft GROUP BY T2.Winning_Aircraft ORDER BY COUNT(*) DESC LIMIT 1"
+    val s13 = "SELECT venue FROM MATCH ORDER BY date DESC"
+    val s14 = "SELECT Aircraft FROM aircraft WHERE Aircraft_ID NOT IN (SELECT Winning_Aircraft FROM MATCH)"
+//    logger.info(s"INPUT: ${s8}")
+    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s13))
+  }
+
+
+
 }
