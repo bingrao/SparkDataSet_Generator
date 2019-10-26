@@ -12,11 +12,18 @@ import scala.collection.JavaConversions._
 
 trait EnrichedTrees extends Common {
 
+  /*********************************************************************************************************/
+  /*******************************   Global Varibles to Record info ****************************************/
+  /*********************************************************************************************************/
   val regEmpty:String = ""
   var tableList:mutable.HashMap[String, String] = new mutable.HashMap[String, String]() // (alias -> name)
   var joinList = new ListBuffer[Join]()
   var selectList = new ListBuffer[SelectItem]()
 
+
+  /*********************************************************************************************************/
+  /*****************************   Implicit class for JSQLparser Node *************************************/
+  /*********************************************************************************************************/
   implicit class genSelect(select:Select){
     def genCode(df:mutable.StringBuilder):String  = select.getSelectBody.genCode(df)
   }
@@ -45,7 +52,6 @@ trait EnrichedTrees extends Common {
       regEmpty
     }
   }
-
   implicit class genPlainSelect(body:PlainSelect){
     def genCode(df:mutable.StringBuilder):String  = {
       logger.debug("PlainSelect:" + body)
@@ -63,109 +69,6 @@ trait EnrichedTrees extends Common {
       joinList.foreach(list => logger.debug(list.toString(), true))
       selectList.foreach(list => logger.debug(list.toString(), true))
 
-      regEmpty
-    }
-    def genCodeFrom(from:FromItem ,df:mutable.StringBuilder):String  = {
-      from match {
-        case subjoin:SubJoin => {
-          val leftTable = subjoin.getLeft.asInstanceOf[Table]
-          addTable(leftTable)
-          df.append(getTableName(leftTable))
-          val joins = subjoin.getJoinList.toList
-          joins.foreach(join => {
-            addTable(join.getRightItem.asInstanceOf[Table])
-            joinList += join
-            join.genCode(df)
-          })
-        }
-        case table:Table => {
-          addTable(table)
-          val tableName = getTableName(table)
-          df.append(tableName)
-        }
-        case parFrom:ParenthesisFromItem =>{}
-        case subselect:SubSelect =>{
-          subselect.getSelectBody.genCode(df)
-        }
-        case lsubselect:LateralSubSelect =>{}
-        case valuelist:ValuesList =>{}
-        case tableFunc:TableFunction =>{}
-        case _ => {
-
-        }
-      }
-      regEmpty
-    }
-    def genCodeJoins(joins: List[Join] ,df:mutable.StringBuilder):String = {
-      joins.foreach(join => {
-        addTable(join.getRightItem.asInstanceOf[Table])
-        joinList += join
-        join.genCode(df)
-      })
-      regEmpty
-    }
-    def genCodeWhere(where:Expression,df:mutable.StringBuilder):String  = {
-      val whereString = getExpressionString(where)
-      df.append(s".filter(${whereString})")
-      regEmpty
-    }
-    def genCodeSelect(selectItems: List[SelectItem],df:mutable.StringBuilder):String  = {
-      val selectString = selectItems.map(select => {
-        select match {
-          case sExp:SelectExpressionItem => {
-            getExpressionString(sExp.getExpression)
-          }
-          case aTcolumns: AllTableColumns => {
-            aTcolumns.toString
-          }
-          case aColumns: AllColumns => {
-            aColumns.toString
-          }
-          case _ => {
-            logger.info("select item is wrong" + select)
-            select.toString
-          }
-        }
-      }).mkString(",")
-
-      df.append(s".select(${selectString})")
-
-      regEmpty
-    }
-    def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder):String  = {
-      //      people.filter("age > 30")
-      //        .join(department, people("deptId") === department("id"))
-      //        .groupBy(department("name"), people("gender"))
-      //        .agg(avg(people("salary")), max(people("age")))
-      val aggSelectList = selectList.filter(selectItem => {
-        selectItem.isInstanceOf[SelectExpressionItem] &&
-          selectItem.asInstanceOf[SelectExpressionItem].getExpression.isInstanceOf[Function]
-      }).map(selectItem => {
-        selectItem.asInstanceOf[SelectExpressionItem].toString
-      }).mkString(",")
-
-      val groupExpressionsString = groupByElement
-        .getGroupByExpressions
-        .map(getExpressionString _)
-        .mkString(",")
-      df.append(s".groupBy(${groupExpressionsString}).agg(${aggSelectList})")
-
-      regEmpty
-    }
-    def genCodeOrderBy(orderByElement: List[OrderByElement] ,df:mutable.StringBuilder):String  = {
-      val eleString = orderByElement.map(ele => {
-        getExpressionString(ele.getExpression)
-      }).mkString(",")
-      df.append(s".orderBy($eleString)")
-      regEmpty
-    }
-    def genCodeDistinct(distinct: Distinct ,df:mutable.StringBuilder):String  = {
-      df.append(s".distinct")
-      regEmpty
-    }
-    def genCodeLimit(limit: Limit ,df:mutable.StringBuilder):String  = {
-      val nums = getExpressionString(limit.getRowCount)
-      df.append(s".takeAsList($nums)")
       regEmpty
     }
   }
@@ -212,7 +115,6 @@ trait EnrichedTrees extends Common {
       regEmpty
     }
   }
-
   implicit class genExpression(expression: Expression) {
     def genCode(df:mutable.StringBuilder):String = {
       df.append(getExpressionString(expression))
@@ -220,20 +122,131 @@ trait EnrichedTrees extends Common {
     }
   }
 
+
   implicit class genSetOperationList(body: SetOperationList){
     def genCode(df:mutable.StringBuilder):String = {
       logger.debug("SetOperationList:" + body)
       val selects = body.getSelects.toList
       val operations = body.getOperations.toList
-      val orderByElements = body.getOrderByElements
+      val orderByElements = body.getOrderByElements.toList
       val limit = body.getLimit
+
       selects.foreach(body => body.genCode(df))
+      if(orderByElements != null) genCodeOrderBy(orderByElements, df)
+      if(limit != null) genCodeLimit(limit, df)
       regEmpty
     }
   }
 
-  private def getTableName(table: Table) = table.getName
-  private def getExpressionString(expression: Expression):String  = {
+  /*********************************************************************************************************/
+  /****************************************   Helper Functions *********************************************/
+  /*********************************************************************************************************/
+  def genCodeFrom(from:FromItem ,df:mutable.StringBuilder)  = {
+    from match {
+      case subjoin:SubJoin => {
+        val leftTable = subjoin.getLeft.asInstanceOf[Table]
+        addTable(leftTable)
+        df.append(getTableName(leftTable))
+        val joins = subjoin.getJoinList.toList
+        joins.foreach(join => {
+          addTable(join.getRightItem.asInstanceOf[Table])
+          joinList += join
+          join.genCode(df)
+        })
+      }
+      case table:Table => {
+        addTable(table)
+        val tableName = getTableName(table)
+        df.append(tableName)
+      }
+      case parFrom:ParenthesisFromItem =>{}
+      case subselect:SubSelect =>{
+        subselect.getSelectBody.genCode(df)
+      }
+      case lsubselect:LateralSubSelect =>{
+        //TODO
+        throw new UnsupportedOperationException("Not supported yet.")
+      }
+      case valuelist:ValuesList =>{
+        //TODO
+        throw new UnsupportedOperationException("Not supported yet.")
+      }
+      case tableFunc:TableFunction =>{
+        //TODO
+        throw new UnsupportedOperationException("Not supported yet.")
+      }
+      case _ => {
+        //TODO
+        throw new UnsupportedOperationException("Not supported yet.")
+      }
+    }
+    df
+  }
+  def genCodeJoins(joins: List[Join] ,df:mutable.StringBuilder) = {
+    joins.foreach(join => {
+      addTable(join.getRightItem.asInstanceOf[Table])
+      joinList += join
+      join.genCode(df)
+    })
+    df
+  }
+  def genCodeWhere(where:Expression,df:mutable.StringBuilder)  = {
+    val whereString = getExpressionString(where)
+    df.append(s".filter(${whereString})")
+  }
+  def genCodeSelect(selectItems: List[SelectItem],df:mutable.StringBuilder)  = {
+    val selectString = selectItems.map(select => {
+      select match {
+        case sExp:SelectExpressionItem => {
+          getExpressionString(sExp.getExpression)
+        }
+        case aTcolumns: AllTableColumns => {
+          aTcolumns.toString
+        }
+        case aColumns: AllColumns => {
+          aColumns.toString
+        }
+        case _ => {
+          logger.info("select item is wrong" + select)
+          select.toString
+        }
+      }
+    }).mkString(",")
+    df.append(s".select(${selectString})")
+  }
+  def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder)  = {
+    //      people.filter("age > 30")
+    //        .join(department, people("deptId") === department("id"))
+    //        .groupBy(department("name"), people("gender"))
+    //        .agg(avg(people("salary")), max(people("age")))
+    val aggSelectList = selectList.filter(selectItem => {
+      selectItem.isInstanceOf[SelectExpressionItem] &&
+        selectItem.asInstanceOf[SelectExpressionItem].getExpression.isInstanceOf[Function]
+    }).map(selectItem => {
+      selectItem.asInstanceOf[SelectExpressionItem].toString
+    }).mkString(",")
+
+    val groupExpressionsString = groupByElement
+      .getGroupByExpressions
+      .map(getExpressionString _)
+      .mkString(",")
+    df.append(s".groupBy(${groupExpressionsString}).agg(${aggSelectList})")
+  }
+  def genCodeOrderBy(orderByElement: List[OrderByElement] ,df:mutable.StringBuilder)  = {
+    val eleString = orderByElement.map(ele => {
+      getExpressionString(ele.getExpression)
+    }).mkString(",")
+    df.append(s".orderBy($eleString)")
+  }
+  def genCodeDistinct(distinct: Distinct ,df:mutable.StringBuilder)  = {
+    df.append(s".distinct")
+  }
+  def genCodeLimit(limit: Limit ,df:mutable.StringBuilder)  = {
+    val nums = getExpressionString(limit.getRowCount)
+    df.append(s".takeAsList($nums)")
+  }
+  def getTableName(table: Table) = table.getName
+  def getExpressionString(expression: Expression):String  = {
     expression match {
       case column: Column => {
         val colName = column.getColumnName
@@ -258,7 +271,7 @@ trait EnrichedTrees extends Common {
       }
     }
   }
-  private def addTable(table:Table):Unit = if (table != null){
+  def addTable(table:Table):Unit = if (table != null){
     if(table.getAlias != null) // (alias --> Name)
       tableList +=(table.getAlias.getName -> table.getName)
     else
