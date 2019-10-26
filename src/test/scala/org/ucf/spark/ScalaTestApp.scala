@@ -31,18 +31,18 @@ class ScalaTestAPP extends common.Common {
     logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s2))
   }
   @Test def testParseSQL_s7(): Unit = { // cannot parse since >= in order by
-    val s7 = "SELECT T2.name FROM Certificate AS T1 JOIN Aircraft AS T2 ON T2.aid  =  T1.aid WHERE T2.distance  >  5000 GROUP BY T1.aid ORDER BY count(*)  >=  5"
+    val s7 = "SELECT T2.name FROM Certificate AS T1 JOIN Aircraft AS T2 ON T2.aid  =  T1.aid WHERE T2.distance  >  5000 GROUP BY T1.aid ORDER BY count(*)  >=  5"  // problem at "ORDER BY count(*)  >=  5"
     val s8 = "SELECT appointmentid FROM appointment ORDER BY START DESC LIMIT 1" //start
-    val s9 = "SELECT Character, Duration FROM actor" //
+    val s9 = "SELECT Character, Duration FROM actor" // "Character"
     val s10 = "SELECT T1.name FROM patient AS T1 JOIN appointment AS T2 ON T1.ssn = T2.patient ORDER BY T2.start DESC LIMIT 1" // start
     val s11 = "SELECT T2.Location ,  T1.Aircraft FROM aircraft AS T1 JOIN MATCH AS T2 ON T1.Aircraft_ID  =  T2.Winning_Aircraft" //match
-    val s12 = "SELECT T1.Aircraft FROM aircraft AS T1 JOIN MATCH AS T2 ON T1.Aircraft_ID  =  T2.Winning_Aircraft GROUP BY T2.Winning_Aircraft ORDER BY COUNT(*) DESC LIMIT 1"
-    val s13 = "SELECT venue FROM MATCH ORDER BY date DESC"
-    val s14 = "SELECT Aircraft FROM aircraft WHERE Aircraft_ID NOT IN (SELECT Winning_Aircraft FROM MATCH)"
+    val s12 = "SELECT T1.Aircraft FROM aircraft AS T1 JOIN MATCH AS T2 ON T1.Aircraft_ID  =  T2.Winning_Aircraft GROUP BY T2.Winning_Aircraft ORDER BY COUNT(*) DESC LIMIT 1" //match
+    val s13 = "SELECT venue FROM MATCH ORDER BY date DESC"  // match
+    val s14 = "SELECT Aircraft FROM aircraft WHERE Aircraft_ID NOT IN (SELECT Winning_Aircraft FROM MATCH)"  //match
     val s15 = "SELECT count(DISTINCT temporary_acting) FROM management"
     val s16 = "INPUT SQL: SELECT head_id ,  name FROM head WHERE name LIKE '%Ha%'"
 //    logger.info(s"INPUT: ${s8}")
-    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s13))
+    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s15))
   }
 
   @Test def testParseSQL_s3(): Unit = {
@@ -50,6 +50,13 @@ class ScalaTestAPP extends common.Common {
     logger.info(s"INPUT: ${s3}")
     logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s3))
   }
+
+  @Test def testParseSQL_product(): Unit = {
+    val s3 = "Select asin, max(price) from product"
+    logger.info(s"INPUT: ${s3}")
+    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s3))
+  }
+
 
 
 

@@ -23,14 +23,14 @@ object SpiderFileReader {
         if (query.split(" ").contains("MATCH")) reg = false
         if (query.split(" ").contains("CHARACTER")) reg = false
         if (query.split(" ").contains("NOT")) reg = false
-        if (query.split(" ").contains("HAVING")) reg = false
+//        if (query.split(" ").contains("HAVING")) reg = false
         if (query.contains("ORDER BY COUNT(*)  >=  5")) reg = false
         reg
       })
       .map( ele => {
       val query = (ele \ "query").extract[String]
       ele merge JObject("SparkDataFrame" -> JString(codegen.DataFrame.codeGen(query)))
-    })
+    }).filter( ele => !(ele \ "SparkDataFrame").extract[String].contains(unSupportNotice))
 
     val fw = new FileWriter("output/train_spider_output.json")
 

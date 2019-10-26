@@ -1,0 +1,9 @@
+val metaData131m = "/data/amazon/ProductMeta_131m.jsonl"
+val productDF = spark.read.json(metaData131m)
+productDF.createOrReplaceTempView("product")
+
+val p2 = spark.sql("Select asin, brand, price from product")
+val p3 = product.select("asin","brand","price")
+
+val p2 = spark.sql("Select asin, max(price) from product")
+val p3 = product.groupBy().agg("asin",max("price"))

@@ -18,8 +18,16 @@ object DataFrame extends common.EnrichedTrees {
     else
       logger.info("Only support select statement: " + statement)
 
-    logger.debug("OUTPUT DataFrame: " + dataframe.toString())
 
+    if(unSupport) {
+//      logger.info(s"${unSupportNotice} I cannot support current SQL ...")
+//      logger.info(s"${unSupportNotice} INPUT SQL: " + sql)
+//      logger.info(s"${unSupportNotice} OUTPUT DataFrame: " + dataframe.toString())
+      dataframe.append(unSupportNotice)
+      this.unSupport = false
+    }
+
+    logger.debug("OUTPUT DataFrame: " + dataframe.toString())
     return dataframe.toString()
   }
 }
