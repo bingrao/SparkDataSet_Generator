@@ -1,19 +1,16 @@
 package org.ucf.spark
 package common
+
 import net.sf.jsqlparser.statement.select._
 import net.sf.jsqlparser.statement.values._
 import net.sf.jsqlparser.schema._
 import net.sf.jsqlparser.statement.select.Join
 import net.sf.jsqlparser.expression._
-import dataframe._
-
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConversions._
 
 trait EnrichedTrees extends Common {
-
-
-  import scala.collection.JavaConversions._
 
   val regEmpty:String = ""
   var tableList:mutable.HashMap[String, String] = new mutable.HashMap[String, String]() // (alias -> name)
@@ -28,7 +25,6 @@ trait EnrichedTrees extends Common {
       body match {
         case pSelect:PlainSelect => {
           pSelect.genCode(df)
-
         }
         case sSelect:SetOperationList => {
           sSelect.genCode(df)
@@ -36,11 +32,11 @@ trait EnrichedTrees extends Common {
         }
         case wItem:WithItem => {
           //TODO
-
+          throw new UnsupportedOperationException("Not supported yet.")
         }
         case vStatement:ValuesStatement => {
           //TODO
-
+          throw new UnsupportedOperationException("Not supported yet.")
         }
         case _ => {
           logger.info("Select Body Error: " + body)
@@ -52,7 +48,7 @@ trait EnrichedTrees extends Common {
 
   implicit class genPlainSelect(body:PlainSelect){
     def genCode(df:mutable.StringBuilder):String  = {
-      logger.info("PlainSelect:" + body)
+      logger.debug("PlainSelect:" + body)
       selectList.addAll(body.getSelectItems.toList)
       if (body.getFromItem != null) genCodeFrom(body.getFromItem, df)
       if (body.getJoins != null) genCodeJoins(body.getJoins.toList, df)
@@ -62,9 +58,11 @@ trait EnrichedTrees extends Common {
       if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList, df)
       if (body.getDistinct != null) genCodeDistinct(body.getDistinct, df)
       if (body.getLimit != null) genCodeLimit(body.getLimit, df)
-      tableList.foreach(println _)
-      joinList.foreach(println _)
-      selectList.foreach(println _)
+
+      tableList.foreach(list => logger.debug(list.toString(), true))
+      joinList.foreach(list => logger.debug(list.toString(), true))
+      selectList.foreach(list => logger.debug(list.toString(), true))
+
       regEmpty
     }
     def genCodeFrom(from:FromItem ,df:mutable.StringBuilder):String  = {
@@ -224,7 +222,7 @@ trait EnrichedTrees extends Common {
 
   implicit class genSetOperationList(body: SetOperationList){
     def genCode(df:mutable.StringBuilder):String = {
-      logger.info("SetOperationList:" + body)
+      logger.debug("SetOperationList:" + body)
       val selects = body.getSelects.toList
       val operations = body.getOperations.toList
       val orderByElements = body.getOrderByElements

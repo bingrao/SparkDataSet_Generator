@@ -5,8 +5,6 @@ import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.select._
 
 class DataFrame extends common.EnrichedTrees {
-
-
   def parse(sql:String):String = {
     val statement = CCJSqlParserUtil.parse(sql)
     val dataframe = new StringBuilder()
