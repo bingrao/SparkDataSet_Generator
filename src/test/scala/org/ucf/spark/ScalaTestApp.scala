@@ -44,7 +44,7 @@ class ScalaTestAPP extends common.Common {
   }
 
   @Test def testParseSQL_s3(): Unit = {
-    val s3 = "SELECT max(budget_in_billions) ,  min(budget_in_billions) FROM department"
+    val s3 = "SELECT department.budget_in_billions,  budget_in_billions FROM department"
     logger.info(s"INPUT: ${s3}")
     logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s3))
   }

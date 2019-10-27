@@ -197,12 +197,6 @@ trait EnrichedTrees extends Common {
           }
         } // t1.name = t2.name
         case between:Between => {
-//          val leftString = between.getLeftExpression.getString()
-//          val left = if(leftString.split("[()]").size > 1) { // include table name
-//            leftString
-//          } else {
-//            "col(" + leftString + ")"
-//          }
           if(between.getLeftExpression.isInstanceOf[SubSelect]) subSelect = true
           if(between.getBetweenExpressionStart.isInstanceOf[SubSelect]) subSelect = true
           if(between.getBetweenExpressionEnd.isInstanceOf[SubSelect]) subSelect = true
@@ -367,18 +361,20 @@ trait EnrichedTrees extends Common {
               havaColumn = true
               val column = sExp.getExpression.asInstanceOf[Column]
               if(sExp.getAlias != null) {
-                if (column.getTable != null) // review("asin").as("id")
-                  sExp.getExpression.getString() + ".as(\"" + sExp.getAlias.getName +"\")"
-                else // col("asin").as("id")
-                  s"col(" + sExp.getExpression.getString() + ").as(\"" + sExp.getAlias.getName +"\")"
+//                if (column.getTable != null) // review("asin").as("id")
+//                  sExp.getExpression.getString() + ".as(\"" + sExp.getAlias.getName +"\")"
+//                else // col("asin").as("id")
+//                  s"col(" + sExp.getExpression.getString() + ").as(\"" + sExp.getAlias.getName +"\")"
+                getColumnName(sExp.getExpression) + ".as(\"" + sExp.getAlias.getName +"\")"
               } else {
-                if (column.getTable != null)
-                  sExp.getExpression.getString() // review("asin")
-                else
-                  s"col(" + sExp.getExpression.getString() + ")" // col("asin")
+//                if (column.getTable != null)
+//                  sExp.getExpression.getString() // review("asin")
+//                else
+//                  s"col(" + sExp.getExpression.getString() + ")" // col("asin")
+                getColumnName(sExp.getExpression)
               }
             } else {
-              sExp.getExpression.getString()
+              getColumnName(sExp.getExpression)
             }
           }
           case aTcolumns: AllTableColumns => {
@@ -456,11 +452,12 @@ trait EnrichedTrees extends Common {
       groupExpressionsString = groupByElement
         .getGroupByExpressions
         .map( expression => {
-          val expStringList = expression.getString().split("[()]") // column name will be in the last pos
-          if (expStringList.size > 1) // which means already include a table, e.g product("asin")
-            expStringList.head + "(" + expStringList.last + ")" // col("asin")
-          else
-            "col(" + expStringList.last + ")" // col("asin")
+          getColumnName(expression)
+//          val expStringList = expression.getString().split("[()]") // column name will be in the last pos
+//          if (expStringList.size > 1) // which means already include a table, e.g product("asin")
+//            expStringList.head + "(" + expStringList.last + ")" // col("asin")
+//          else
+//            "col(" + expStringList.last + ")" // col("asin")
         })
         .mkString(",")
       //    df.append(s".groupBy(${groupExpressionsString}).agg(${aggSelectList})")
@@ -517,7 +514,6 @@ trait EnrichedTrees extends Common {
     }
     df
   }
-
 
   /*********************************************************************************************************/
   /****************************************   Helper Functions *********************************************/
