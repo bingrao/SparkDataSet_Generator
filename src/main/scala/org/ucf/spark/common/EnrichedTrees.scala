@@ -102,7 +102,7 @@ trait EnrichedTrees extends Common {
     def genCode(df:mutable.StringBuilder):String = {
       if (unSupport == false) {
         val right = getTableName(join.getRightItem.asInstanceOf[Table])
-        val condition = getExpressionString(join.getOnExpression)
+        val condition = join.getOnExpression.getString()
         val joinStatement = if (join.isSimple() && join.isOuter()) {
           s"join(${right}, ${condition}, outer)"
         } else if (join.isSimple()) {
@@ -165,15 +165,15 @@ trait EnrichedTrees extends Common {
         case func:Function => {
           if(func.getParameters != null ){
             val params = func.getParameters.getExpressions.toList
-              .map(getExpressionString _).mkString(",")
+              .map(_.getString()).mkString(",")
             func.getName + "(" + params + ")"
           } else {
             func.toString
           }
         } // max(a)
         case binaryExpr:BinaryExpression => {
-          val leftString = getExpressionString(binaryExpr.getLeftExpression)
-          val rightString = getExpressionString(binaryExpr.getRightExpression)
+          val leftString = binaryExpr.getLeftExpression.getString()
+          val rightString = binaryExpr.getRightExpression.getString()
           val op = binaryExpr.getStringExpression
           s"${leftString} ${op} ${rightString}"
         } // t1.name = t2.name
@@ -274,7 +274,7 @@ trait EnrichedTrees extends Common {
   }
   private def genCodeWhere(where:Expression,df:mutable.StringBuilder)  = {
     if (unSupport == false) {
-      val whereString = getExpressionString(where)
+      val whereString = where.getString()
       df.append(s".filter(${whereString})")
       //    df.append(".where(\"" + where + "\")")
     }
@@ -291,26 +291,26 @@ trait EnrichedTrees extends Common {
             if (sExp.getExpression.isInstanceOf[Function]){ // max(price)
               haveAgg = true
               if(sExp.getAlias != null) {
-                getExpressionString(sExp.getExpression) + " as \"" + sExp.getAlias.getName +"\""
+                sExp.getExpression.getString() + " as \"" + sExp.getAlias.getName +"\""
               } else {
-                getExpressionString(sExp.getExpression)
+                sExp.getExpression.getString()
               }
             } else if (sExp.getExpression.isInstanceOf[Column]) { // t1.a, a
               havaColumn = true
               val column = sExp.getExpression.asInstanceOf[Column]
               if(sExp.getAlias != null) {
                 if (column.getTable != null) // review("asin").as("id")
-                  getExpressionString(sExp.getExpression) + ".as(\"" + sExp.getAlias.getName +"\")"
+                  sExp.getExpression.getString() + ".as(\"" + sExp.getAlias.getName +"\")"
                 else // col("asin").as("id")
-                  s"col(" + getExpressionString(sExp.getExpression) + ").as(\"" + sExp.getAlias.getName +"\")"
+                  s"col(" + sExp.getExpression.getString() + ").as(\"" + sExp.getAlias.getName +"\")"
               } else {
                 if (column.getTable != null)
-                  getExpressionString(sExp.getExpression) // review("asin")
+                  sExp.getExpression.getString() // review("asin")
                 else
-                  s"col(" + getExpressionString(sExp.getExpression) + ")" // col("asin")
+                  s"col(" + sExp.getExpression.getString() + ")" // col("asin")
               }
             } else {
-              getExpressionString(sExp.getExpression)
+              sExp.getExpression.getString()
             }
           }
           case aTcolumns: AllTableColumns => {
@@ -418,7 +418,7 @@ trait EnrichedTrees extends Common {
   }
   private def genCodeLimit(limit: Limit ,df:mutable.StringBuilder)  = {
     if (unSupport == false) {
-      val nums = getExpressionString(limit.getRowCount)
+      val nums = limit.getRowCount.getString()
       df.append(s".limit($nums)")
     }
     df
@@ -429,38 +429,6 @@ trait EnrichedTrees extends Common {
   /****************************************   Helper Functions *********************************************/
   /*********************************************************************************************************/
   private def getTableName(table: Table) = table.getName
-  private def getExpressionString(expression: Expression):String  = {
-    if (expression == null) return regEmpty
-    expression match {
-      case column: Column => {
-        val colName = column.getColumnName
-        if(column.getTable != null) {
-          val tableName = tableList.getOrElse(column.getTable.getName, column.getTable.getName)
-          s"${tableName}(" + "\"" + colName + "\"" + ")"
-        } else {
-          "\"" + colName + "\""
-        }
-      } // City or t1.name
-      case func:Function => {
-        if(func.getParameters != null ){
-          val params = func.getParameters.getExpressions.toList
-            .map(getExpressionString _).mkString(",")
-          func.getName + "(" + params + ")"
-        } else {
-          func.toString
-        }
-      } // max(a)
-      case binaryExpr:BinaryExpression => {
-        val leftString = getExpressionString(binaryExpr.getLeftExpression)
-        val rightString = getExpressionString(binaryExpr.getRightExpression)
-        val op = binaryExpr.getStringExpression
-        s"${leftString} ${op} ${rightString}"
-      } // t1.name = t2.name
-      case _ => {
-        expression.toString
-      }
-    }
-  }
   private def addTable(table:Table):Unit = if (table != null){
     if(table.getAlias != null) // (alias --> Name)
       tableList +=(table.getAlias.getName -> table.getName)
