@@ -44,7 +44,7 @@ class ScalaTestAPP extends common.Common {
   }
 
   @Test def testParseSQL_s3(): Unit = {
-    val s3 = "SELECT department.budget_in_billions,  budget_in_billions FROM department"
+    val s3 = "SELECT max(budget_in_billions) as Bing FROM department"
     logger.info(s"INPUT: ${s3}")
     logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s3))
   }
@@ -55,7 +55,7 @@ class ScalaTestAPP extends common.Common {
     val s5 = "SELECT count(*) FROM department AS T1 JOIN management AS T2 ON T1.department_id  =  T2.department_id JOIN head AS T3 ON T2.head_id  =  T3.head_id WHERE T3.born_state  =  'Alabama'"
     val s6 = "SELECT T2.first_name , T2.last_name FROM employees AS T1 JOIN employees AS T2 ON T1.id = T2.reports_to WHERE T1.first_name LIKE 10;"
 
-    val test = s6
+    val test = s4
     logger.info(s"INPUT: ${test}")
     logger.info("OUTPUT: " + codegen.DataFrame.codeGen(test))
   }

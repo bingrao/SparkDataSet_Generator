@@ -29,7 +29,7 @@ trait EnrichedTrees extends Common {
   /*********************************************************************************************************/
   implicit class genSelect(select:Select){
     def genCode(df:mutable.StringBuilder):String  = {
-      if (unSupport == false) {
+      if (!unSupport) {
         select.getSelectBody.genCode(df)
       }
       regEmpty
@@ -37,7 +37,7 @@ trait EnrichedTrees extends Common {
   }
   implicit class genSelectBody(body:SelectBody) {
     def genCode(df:mutable.StringBuilder):String = {
-      if (unSupport == false) {
+      if (!unSupport) {
         body match {
           case pSelect: PlainSelect => {
             pSelect.genCode(df)
@@ -64,7 +64,7 @@ trait EnrichedTrees extends Common {
   }
   implicit class genPlainSelect(body:PlainSelect){
     def genCode(df:mutable.StringBuilder):String  = {
-      if (unSupport == false) {
+      if (!unSupport) {
         selectList.addAll(body.getSelectItems.toList)
 
         /**
@@ -102,42 +102,38 @@ trait EnrichedTrees extends Common {
   }
   implicit class genJoin(join:Join) {
     def genCode(df:mutable.StringBuilder):String = {
-      if (unSupport == false) {
+      if (!unSupport) {
         val right = getTableName(join.getRightItem.asInstanceOf[Table])
         val condition = join.getOnExpression.getString()
-        val joinStatement = if (join.isSimple() && join.isOuter()) {
-          s"join(${right}, ${condition}, outer)"
-        } else if (join.isSimple()) {
-          s"join(${right}, ${condition}, ) "
+        val joinStatement = if (join.isSimple && join.isOuter) {
+          s"join($right, $condition, outer)"
+        } else if (join.isSimple) {
+          s"join($right, $condition, ) "
         } else {
-
-          if (join.isRight()) {
-            s"join(${right}, ${condition}, right)"
-            " "
-          } else if (join.isNatural()) {
-            s"join(${right}, ${condition}, inner)"
-            " "
-          } else if (join.isFull()) {
-            s"join(${right}, ${condition}, full)"
-          } else if (join.isLeft()) {
-            s"join(${right}, ${condition}, left)"
-            " "
-          } else if (join.isCross()) {
-            s"join(${right}, ${condition}, cross)"
+          if (join.isRight) {
+            s"join($right, $condition, right)"
+          } else if (join.isNatural) {
+            s"join($right, $condition, inner)"
+          } else if (join.isFull) {
+            s"join($right, $condition, full)"
+          } else if (join.isLeft) {
+            s"join($right, $condition, left)"
+          } else if (join.isCross) {
+            s"join($right, $condition, cross)"
           }
 
-          if (join.isOuter()) {
-            s"join(${right}, ${condition}, outer)"
-          } else if (join.isInner()) {
-            s"join(${right}, ${condition}, inner)"
-          } else if (join.isSemi()) {
-            s"join(${right}, ${condition}, left_semi)"
+          if (join.isOuter) {
+            s"join($right, $condition, outer)"
+          } else if (join.isInner) {
+            s"join($right, $condition, inner)"
+          } else if (join.isSemi) {
+            s"join($right, $condition, left_semi)"
           }
 
-          if (!join.isStraight()) {
-            s"join(${right}, ${condition}, inner)"
+          if (!join.isStraight) {
+            s"join($right, $condition, inner)"
           } else {
-            s"join(${right}, ${condition}, STRAIGHT_JOIN)"
+            s"join($right, $condition, STRAIGHT_JOIN)"
           }
         }
         df.append("." + joinStatement)
@@ -147,7 +143,7 @@ trait EnrichedTrees extends Common {
   }
   implicit class genExpression(expr: Expression) {
     def genCode(df:mutable.StringBuilder):String = {
-      if (unSupport == false) {
+      if (!unSupport) {
         df.append(this.getString(expr))
       }
       regEmpty
@@ -160,7 +156,7 @@ trait EnrichedTrees extends Common {
           val colName = column.getColumnName
           if(column.getTable != null) {
             val tableName = tableList.getOrElse(column.getTable.getName, column.getTable.getName)
-            s"${tableName}(" + "\"" + colName + "\"" + ")"
+            s"$tableName(" + "\"" + colName + "\"" + ")"
           } else {
             "\"" + colName + "\""
           }
@@ -187,11 +183,11 @@ trait EnrichedTrees extends Common {
               val rightString = binaryExpr.getRightExpression.getString()
               val op = binaryExpr.getStringExpression.toUpperCase
               op match {
-                case "=" => s"${leftString} === ${rightString}"
-                case "!=" => s"${leftString} =!= ${rightString}"
-                case "AND" => s"${leftString} && ${rightString}"
-                case "OR" => s"${leftString} || ${rightString}"
-                case _ => s"${leftString} ${op} ${rightString}"
+                case "=" => s"$leftString === $rightString"
+                case "!=" => s"$leftString =!= $rightString"
+                case "AND" => s"$leftString && $rightString"
+                case "OR" => s"$leftString || $rightString"
+                case _ => s"$leftString ${op} $rightString"
               }
             }
           }
@@ -204,7 +200,7 @@ trait EnrichedTrees extends Common {
           val left = getColumnName(between.getLeftExpression)
           val start = between.getBetweenExpressionStart.getString()
           val end = between.getBetweenExpressionEnd.getString()
-          s"${left} >= ${start} and ${left} =< ${end}"
+          s"$left >= $start and $left =< $end"
         }
 
         case _ => {
@@ -218,27 +214,32 @@ trait EnrichedTrees extends Common {
         expString
 
     }
-
-    def isFuncOrBinary = {
-      if(expr.isInstanceOf[Function])
-        true
-      else if(expr.isInstanceOf[BinaryExpression])
-        true
-      else
-        false
+    def isFuncOrBinary(expression: Expression = expr) = expression match {
+      case _:Function => true
+      case _:BinaryExpression => true
+      case _ => false
     }
+
+//    {
+//      if(expr.isInstanceOf[Function])
+//        true
+//      else if(expr.isInstanceOf[BinaryExpression])
+//        true
+//      else
+//        false
+//    }
 
   }
   implicit class genSetOperationList(body: SetOperationList){
     def genCode(df:mutable.StringBuilder):String = {
-      if (unSupport == false) {
+      if (!unSupport) {
         val selects = body.getSelects.toList
         val operations = body.getOperations.toList
         val brackets = body.getBrackets
 
-        for (i <- 0 to (selects.size - 1)) {
+        for (i <- selects.indices) {
           if (i != 0) {
-            val op = operations.get(i - 1).toString().toLowerCase
+            val op = operations.get(i - 1).toString.toLowerCase
             if (op.equals("minus")) throw new UnsupportedOperationException("Unsupport Operation")
             df.append(" ").append(op).append(" ")
           }
@@ -309,7 +310,7 @@ trait EnrichedTrees extends Common {
     df
   }
   private def genCodeJoins(joins: List[Join] ,df:mutable.StringBuilder) = {
-    if (unSupport == false) {
+    if (!unSupport) {
       joins.foreach(join => {
         addTable(join.getRightItem.asInstanceOf[Table])
         joinList += join
@@ -319,72 +320,119 @@ trait EnrichedTrees extends Common {
     df
   }
   private def genCodeWhere(where:Expression,df:mutable.StringBuilder)  = {
-    if (unSupport == false) {
+    if (!unSupport) {
       val whereString = where.getString()
-      df.append(s".filter(${whereString})")
+      df.append(s".filter($whereString)")
       //    df.append(".where(\"" + where + "\")")
     }
     df
   }
   private def genCodeSelect(selectItems: List[SelectItem],df:mutable.StringBuilder,groupBy:String):String  = {
     var aggCols = regEmpty
-    if (unSupport == false) {
+    if (!unSupport) {
       var haveAgg: Boolean = false
       var havaColumn: Boolean = false
       var allAlias: Boolean = false
       val selectString = selectItems.map(
         select => { select match {
           case sExp: SelectExpressionItem => {
-            if (sExp.getExpression.isInstanceOf[Function]){ // max(price)
-              haveAgg = true
-              val sExpStringArray = sExp.getExpression.getString().split("[()]")
-              val sExprString = if (sExpStringArray.last.contains("*")){
-                allAlias = true
-                if(sExpStringArray.size > 1)
-                  sExpStringArray.head + "(\"all.*\")"
-                else
-                  "(\"all.*\")"
-              } else {
-                if(sExpStringArray.size > 1)
-                  sExpStringArray.head + "(" + sExpStringArray.last + ")"
-                else
-                  sExpStringArray.last
-              }
+            logger.debug("SelectExpressionItem " + sExp)
+            sExp.getExpression match {
+              case func:Function => {
+                haveAgg = true
+                val sExpStringArray = func.getString().split("[()]")
+                val sExprString = if (sExpStringArray.last.contains("*")){
+                  allAlias = true
+                  if(sExpStringArray.size > 1)
+                    sExpStringArray.head + "(\"all.*\")"
+                  else
+                    "(\"all.*\")"
+                } else {
+                  if(sExpStringArray.size > 1)
+                    sExpStringArray.head + "(" + sExpStringArray.last + ")"
+                  else
+                    sExpStringArray.last
+                }
 
-              if(sExp.getAlias != null) {
-                sExprString + " as \"" + sExp.getAlias.getName +"\""
-              } else {
-                sExprString
+                if(sExp.getAlias != null) {
+                  sExprString + " as \"" + sExp.getAlias.getName +"\""
+                } else {
+                  sExprString
+                }
               }
-
-            } else if (sExp.getExpression.isInstanceOf[Column]) { // t1.a, a
-              havaColumn = true
-              val column = sExp.getExpression.asInstanceOf[Column]
-              if(sExp.getAlias != null) {
-//                if (column.getTable != null) // review("asin").as("id")
-//                  sExp.getExpression.getString() + ".as(\"" + sExp.getAlias.getName +"\")"
-//                else // col("asin").as("id")
-//                  s"col(" + sExp.getExpression.getString() + ").as(\"" + sExp.getAlias.getName +"\")"
-                getColumnName(sExp.getExpression) + ".as(\"" + sExp.getAlias.getName +"\")"
-              } else {
-//                if (column.getTable != null)
-//                  sExp.getExpression.getString() // review("asin")
-//                else
-//                  s"col(" + sExp.getExpression.getString() + ")" // col("asin")
+              case column:Column => {
+                havaColumn = true
+                if(sExp.getAlias != null) {
+                  //                if (column.getTable != null) // review("asin").as("id")
+                  //                  sExp.getExpression.getString() + ".as(\"" + sExp.getAlias.getName +"\")"
+                  //                else // col("asin").as("id")
+                  //                  s"col(" + sExp.getExpression.getString() + ").as(\"" + sExp.getAlias.getName +"\")"
+                  getColumnName(column) + ".as(\"" + sExp.getAlias.getName +"\")"
+                } else {
+                  //                if (column.getTable != null)
+                  //                  sExp.getExpression.getString() // review("asin")
+                  //                else
+                  //                  s"col(" + sExp.getExpression.getString() + ")" // col("asin")
+                  getColumnName(column)
+                }
+              }
+              case _ => {
                 getColumnName(sExp.getExpression)
               }
-            } else {
-              getColumnName(sExp.getExpression)
             }
+
+//            if (sExp.getExpression.isInstanceOf[Function]){ // max(price)
+//              haveAgg = true
+//              val sExpStringArray = sExp.getExpression.getString().split("[()]")
+//              val sExprString = if (sExpStringArray.last.contains("*")){
+//                allAlias = true
+//                if(sExpStringArray.size > 1)
+//                  sExpStringArray.head + "(\"all.*\")"
+//                else
+//                  "(\"all.*\")"
+//              } else {
+//                if(sExpStringArray.size > 1)
+//                  sExpStringArray.head + "(" + sExpStringArray.last + ")"
+//                else
+//                  sExpStringArray.last
+//              }
+//
+//              if(sExp.getAlias != null) {
+//                sExprString + " as \"" + sExp.getAlias.getName +"\""
+//              } else {
+//                sExprString
+//              }
+//
+//            } else if (sExp.getExpression.isInstanceOf[Column]) { // t1.a, a
+//              havaColumn = true
+//              val column = sExp.getExpression.asInstanceOf[Column]
+//              if(sExp.getAlias != null) {
+////                if (column.getTable != null) // review("asin").as("id")
+////                  sExp.getExpression.getString() + ".as(\"" + sExp.getAlias.getName +"\")"
+////                else // col("asin").as("id")
+////                  s"col(" + sExp.getExpression.getString() + ").as(\"" + sExp.getAlias.getName +"\")"
+//                getColumnName(sExp.getExpression) + ".as(\"" + sExp.getAlias.getName +"\")"
+//              } else {
+////                if (column.getTable != null)
+////                  sExp.getExpression.getString() // review("asin")
+////                else
+////                  s"col(" + sExp.getExpression.getString() + ")" // col("asin")
+//                getColumnName(sExp.getExpression)
+//              }
+//            } else {
+//              getColumnName(sExp.getExpression)
+//            }
           }
           case aTcolumns: AllTableColumns => {
+            logger.debug("AllTableColumns " + aTcolumns)
             aTcolumns.toString
           }
           case aColumns: AllColumns => {
-            aColumns.toString
+            logger.debug("AllColums " + aColumns)
+            "col(\"" + aColumns.toString + ")\""
           }
           case _ => {
-            logger.info("select item is wrong" + select)
+            logger.error("select item is wrong" + select)
             select.toString
           }
         }}).mkString(",")
@@ -396,81 +444,61 @@ trait EnrichedTrees extends Common {
       if (haveAgg && havaColumn) {
         this.unSupport = true
         df.append("Current Version does not support to sellect column and agg")
-        //              throw new UnsupportedOperationException("Current Version does not support to sellect column and agg")
         return aggCols
-      } else if ((!groupBy.isEmpty) && (havaColumn)){
+      } else if ((!groupBy.isEmpty) && havaColumn){
         this.unSupport = true
         df.append("Current Version does not support groupBy operation without agg funcs in select")
-        //              throw new UnsupportedOperationException("Current Version does not support to sellect column and agg")
         return aggCols
       }
 
       /**
         * For select count(*) from product, there is a asterisk, so we need to add an alias "all" on [[product]] table
         */
-      if(allAlias == true) {
+      if(allAlias) {
         val dfSize = df.size
         var tableName = regEmpty
         var tableIndex = Int.MinValue
         tableList.foreach{
           case (alias, name) => {
             val index = df.indexOf(name)
-//            logger.debug(s"[Loop] Table name is: ${name}, Index is ${index}")
             if((index != -1) &&(index > tableIndex)){
               tableIndex =  index
               tableName = name
             }
           }
         }
-//        logger.debug(s"Table name is: ${tableName}, Index is ${tableIndex}, DataFrame: ${df.toString()}")
         if(tableName != regEmpty) {
-          df.insert(tableIndex + tableName.size, ".alias(\"all\")")
+          df.insert(tableIndex + tableName.length, ".alias(\"all\")")
         }
       }
 
-      if (!groupBy.isEmpty || (haveAgg == true)) {
-        df.append(s".agg(${selectString})")
+      if (!groupBy.isEmpty || haveAgg) {
+        df.append(s".agg($selectString)")
         aggCols = selectString
       } else
-        df.append(s".select(${selectString})")
+        df.append(s".select($selectString)")
     }
     return aggCols
   }
   private def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder)  = {
     var groupExpressionsString = regEmpty
-    if (unSupport == false) {
-      //      people.filter("age > 30")
-      //        .join(department, people("deptId") === department("id"))
-      //        .groupBy(department("name"), people("gender"))
-      //        .agg(avg(people("salary")), max(people("age")))
-      //    val aggSelectList = selectList.filter(selectItem => {
-      //      selectItem.isInstanceOf[SelectExpressionItem] &&
-      //        selectItem.asInstanceOf[SelectExpressionItem].getExpression.isInstanceOf[Function]
-      //    }).map(selectItem => {
-      //      selectItem.asInstanceOf[SelectExpressionItem].toString
-      //    }).mkString(",")
+    if (!unSupport) {
       groupExpressionsString = groupByElement
         .getGroupByExpressions
         .map( expression => {
           getColumnName(expression)
-//          val expStringList = expression.getString().split("[()]") // column name will be in the last pos
-//          if (expStringList.size > 1) // which means already include a table, e.g product("asin")
-//            expStringList.head + "(" + expStringList.last + ")" // col("asin")
-//          else
-//            "col(" + expStringList.last + ")" // col("asin")
         })
         .mkString(",")
-      //    df.append(s".groupBy(${groupExpressionsString}).agg(${aggSelectList})")
-      df.append(s".groupBy(${groupExpressionsString})")
+      df.append(s".groupBy($groupExpressionsString)")
     }
     groupExpressionsString
   }
   private def genCodeOrderBy(orderByElement: List[OrderByElement] ,df:mutable.StringBuilder, aggCols: String):mutable.StringBuilder  = {
-    if (unSupport == false) {
+    if (!unSupport) {
       var isFuncOrBinary:Boolean = false
       if (aggCols.isEmpty) {
         val eleString = orderByElement.map(ele => {
-          if(ele.getExpression.isFuncOrBinary) {
+          if(ele.getExpression.isFuncOrBinary()) {
             isFuncOrBinary = true
           }
           val expStringList = ele.getExpression.getString().split("[()]") // column name will be in the last pos
@@ -481,10 +509,11 @@ trait EnrichedTrees extends Common {
           if(order != regEmpty) { // User specify order way (asc or desc) explicitly
             order + "(" + expStringList.last + ")"
           } else {
-            if (expStringList.size > 1)
-              expStringList.head + "(" + expStringList.last + ")"
-            else
-              expStringList.mkString
+            getColumnName(ele.getExpression)
+//            if (expStringList.size > 1)
+//              expStringList.head + "(" + expStringList.last + ")"
+//            else
+//              expStringList.mkString
           }
         }).mkString(",")
         df.append(s".orderBy($eleString)")
@@ -502,13 +531,13 @@ trait EnrichedTrees extends Common {
     df
   }
   private def genCodeDistinct(distinct: Distinct ,df:mutable.StringBuilder)  = {
-    if (unSupport == false) {
+    if (!unSupport) {
       df.append(s".distinct")
     }
     df
   }
   private def genCodeLimit(limit: Limit ,df:mutable.StringBuilder)  = {
-    if (unSupport == false) {
+    if (!unSupport) {
       val nums = limit.getRowCount.getString()
       df.append(s".limit($nums)")
     }
@@ -533,7 +562,7 @@ trait EnrichedTrees extends Common {
   private def getColumnName(expression: Expression):String = {
     val name = expression.getString()
     if(expression.isInstanceOf[Column])
-      if(name.split("[()]").size > 1)
+      if(name.split("[()]").length > 1)
         name
       else
         "col(" + name + ")"
