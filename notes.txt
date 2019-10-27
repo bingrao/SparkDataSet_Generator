@@ -12,7 +12,7 @@ Select id,name,age From Student Where age < 15 Union Select id,name,age From Stu
 
 SELECT T1.creation FROM department AS T1 WHERE T1.born_state  =  'Alabama'
 
-val sql = "SELECT City FROM Customers"
+val sql = "SELECT City as Bing FROM Customers"
 val sql = "SELECT T1.creation FROM department AS T1 WHERE T1.born_state  =  'Alabama'"
 val sql = "SELECT MAX (mycount) FROM (SELECT agent_code,COUNT(agent_code) mycount FROM orders GROUP BY agent_code);"
 val sql = "SELECT T1.creation FROM department AS T1 WHERE T1.born_state  =  'Alabama'"

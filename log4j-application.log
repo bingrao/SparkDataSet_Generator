@@ -1,0 +1,122 @@
+2019-10-26 21:19:14 INFO  ScalaTestAPP:8 - INPUT: Select max(price) from product
+2019-10-26 21:19:14 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy().agg(max("price"))
+2019-10-26 21:19:27 INFO  ScalaTestAPP:8 - INPUT: Select max(price) as maxPrice from product
+2019-10-26 21:19:27 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy().agg(max("price")as "maxPrice")
+2019-10-26 21:19:44 INFO  ScalaTestAPP:8 - INPUT: Select max(price) as maxPrice from product
+2019-10-26 21:19:44 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy().agg(max("price") as "maxPrice")
+2019-10-26 21:20:49 INFO  ScalaTestAPP:8 - INPUT: Select max(price) as maxPrice from product
+2019-10-26 21:20:49 INFO  ScalaTestAPP:8 - OUTPUT: product.agg(max("price") as "maxPrice")
+2019-10-26 21:21:19 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 21:21:19 INFO  ScalaTestAPP:8 - OUTPUT: product.select("asin","price" as "maxPrice")
+2019-10-26 21:23:22 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 21:23:23 INFO  ScalaTestAPP:8 - OUTPUT: product.select("asin","price")
+2019-10-26 21:23:51 INFO  ScalaTestAPP:8 - INPUT: Select asin, max(price) as maxPrice from product
+2019-10-26 21:23:51 INFO  ScalaTestAPP:8 - OUTPUT: productCurrent Version does not support to sellect column and agg[***UNSUPPORT***]
+2019-10-26 21:24:16 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product
+2019-10-26 21:24:16 INFO  ScalaTestAPP:8 - OUTPUT: product.agg(min("asin"),max("price") as "maxPrice")
+2019-10-26 21:24:54 INFO  ScalaTestAPP:8 - INPUT: Select min(asin) as min, max(price) as maxPrice from product
+2019-10-26 21:24:54 INFO  ScalaTestAPP:8 - OUTPUT: product.agg(min("asin") as "min",max("price") as "maxPrice")
+2019-10-26 21:27:25 INFO  ScalaTestAPP:8 - INPUT: Select max(price) as maxPrice from product group by brand
+2019-10-26 21:27:25 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand").agg(max("price") as "maxPrice")
+2019-10-26 21:32:19 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product group by brand
+2019-10-26 21:32:19 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand").agg(min("asin"),max("price") as "maxPrice")
+2019-10-26 21:32:45 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product group by brand limit by 10
+2019-10-26 21:33:02 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product group by brand limit 10
+2019-10-26 21:33:02 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand").agg(min("asin"),max("price") as "maxPrice").limit(10)
+2019-10-26 21:48:27 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product group by brand limit 10
+2019-10-26 21:48:27 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand").agg(min("asin"),max("price") as "maxPrice").drop("brand").limit(10)
+2019-10-26 21:49:04 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product order by brand limit 10
+2019-10-26 21:49:04 INFO  ScalaTestAPP:8 - OUTPUT: product.agg(min("asin"),max("price") as "maxPrice").orderBy(asc("brand")).limit(10)
+2019-10-26 21:51:45 INFO  ScalaTestAPP:8 - INPUT: Select asin, price from product order by brand limit 10
+2019-10-26 21:51:45 INFO  ScalaTestAPP:8 - OUTPUT: product.select("asin","price").orderBy(asc("brand")).limit(10)
+2019-10-26 21:58:16 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product  group by brand order by brand limit 10
+2019-10-26 21:58:16 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand").agg(min("asin"),max("price") as "maxPrice").drop("brand").orderBy(asc("brand")).limit(10)
+2019-10-26 22:15:27 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product  group by brand order by brand limit 10
+2019-10-26 22:15:27 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand").agg(min("asin"),max("price") as "maxPrice").orderBy(asc("brand")).limit(10)
+2019-10-26 22:15:41 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), max(price) as maxPrice from product order by brand limit 10
+2019-10-26 22:15:42 INFO  ScalaTestAPP:8 - OUTPUT: product.agg(min("asin"),max("price") as "maxPrice")Current Version does not support to order by from an agg selection without group by[***UNSUPPORT***]
+2019-10-26 22:16:02 INFO  ScalaTestAPP:8 - INPUT: Select asin, max(price) as maxPrice from product order by brand limit 10
+2019-10-26 22:16:02 INFO  ScalaTestAPP:8 - OUTPUT: productCurrent Version does not support to sellect column and agg[***UNSUPPORT***]
+2019-10-26 22:16:13 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product order by brand limit 10
+2019-10-26 22:16:13 INFO  ScalaTestAPP:8 - OUTPUT: product.select("asin","price").orderBy(asc("brand")).limit(10)
+2019-10-26 22:20:38 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 22:20:38 INFO  ScalaTestAPP:8 - OUTPUT: product.select("asin","price")
+2019-10-26 22:42:16 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 22:42:16 INFO  ScalaTestAPP:8 - OUTPUT: product.select((),())
+2019-10-26 22:53:29 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 22:53:29 INFO  ScalaTestAPP:8 - OUTPUT: product.select()
+2019-10-26 22:54:49 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 22:54:49 INFO  ScalaTestAPP:8 - OUTPUT: product.select()
+2019-10-26 22:54:56 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 22:54:56 INFO  ScalaTestAPP:8 - OUTPUT: product.select()
+2019-10-26 22:55:04 INFO  ScalaTestAPP:8 - INPUT: SELECT max(budget_in_billions) ,  min(budget_in_billions) FROM department
+2019-10-26 22:55:04 INFO  ScalaTestAPP:8 - OUTPUT: department.select()
+2019-10-26 22:55:47 INFO  ScalaTestAPP:8 - INPUT: SELECT max(budget_in_billions) ,  min(budget_in_billions) FROM department
+2019-10-26 22:55:47 INFO  ScalaTestAPP:8 - OUTPUT: department.agg(max("budget_in_billions"),min("budget_in_billions"))
+2019-10-26 22:55:54 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 22:55:54 INFO  ScalaTestAPP:8 - OUTPUT: product.select("asin","price")
+2019-10-26 23:01:13 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-26 23:01:13 INFO  ScalaTestAPP:8 - OUTPUT: product.select("asin","price")
+2019-10-27 00:11:49 INFO  ScalaTestAPP:8 - INPUT: Select min(asin), price as maxPrice from product
+2019-10-27 00:11:49 INFO  ScalaTestAPP:8 - OUTPUT: productCurrent Version does not support to sellect column and agg[***UNSUPPORT***]
+2019-10-27 00:18:29 INFO  ScalaTestAPP:8 - INPUT: Select min(asin) as max as maxPrice from product
+2019-10-27 00:18:39 INFO  ScalaTestAPP:8 - INPUT: Select min(asin) as maxPrice from product
+2019-10-27 00:18:39 INFO  ScalaTestAPP:8 - OUTPUT: product.agg(min("asin") as "maxPrice")
+2019-10-27 00:18:53 INFO  ScalaTestAPP:8 - INPUT: Select asin as maxPrice from product
+2019-10-27 00:18:53 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("asin").as("maxPrice"))
+2019-10-27 00:19:22 INFO  ScalaTestAPP:8 - INPUT: Select asin as maxPrice, brand from product
+2019-10-27 00:19:22 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("asin").as("maxPrice"),col("brand"))
+2019-10-27 00:22:11 INFO  ScalaTestAPP:8 - INPUT: Select product.asin, product.price as maxPrice from product
+2019-10-27 00:22:11 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col(product("asin")),col(product("price")).as("maxPrice"))
+2019-10-27 00:32:12 INFO  ScalaTestAPP:8 - INPUT: Select product.asin, product.price as maxPrice from product
+2019-10-27 00:32:12 INFO  ScalaTestAPP:8 - OUTPUT: product.select(product("asin"),product("price").as("maxPrice"))
+2019-10-27 00:32:48 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product
+2019-10-27 00:32:48 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("asin"),col("price").as("maxPrice"))
+2019-10-27 00:33:14 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product group by brand
+2019-10-27 00:33:14 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand").agg(col("asin"),col("price").as("maxPrice"))
+2019-10-27 00:42:34 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product group by brand
+2019-10-27 00:42:34 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand")Current Version does not support groupBy operation without agg funcs in select[***UNSUPPORT***]
+2019-10-27 00:42:36 INFO  ScalaTestAPP:8 - INPUT: Select asin, price as maxPrice from product group by brand
+2019-10-27 00:42:36 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand")Current Version does not support groupBy operation without agg funcs in select[***UNSUPPORT***]
+2019-10-27 00:43:00 INFO  ScalaTestAPP:8 - INPUT: Select max(price) as maxPrice from product group by brand
+2019-10-27 00:43:00 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy("brand").agg(max("price") as "maxPrice")
+2019-10-27 00:43:48 INFO  ScalaTestAPP:8 - INPUT: Select max(price) as maxPrice from product order by brand
+2019-10-27 00:43:48 INFO  ScalaTestAPP:8 - OUTPUT: product.agg(max("price") as "maxPrice")Current Version does not support to order by from an agg selection without group by[***UNSUPPORT***]
+2019-10-27 00:44:20 INFO  ScalaTestAPP:8 - INPUT: Select price as maxPrice from product order by brand
+2019-10-27 00:44:20 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("price").as("maxPrice")).orderBy(asc("brand"))
+2019-10-27 00:44:21 INFO  ScalaTestAPP:8 - INPUT: Select price as maxPrice from product order by brand
+2019-10-27 00:44:21 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("price").as("maxPrice")).orderBy(asc("brand"))
+2019-10-27 00:44:45 INFO  ScalaTestAPP:8 - INPUT: Select price as maxPrice from product order by brand ase
+2019-10-27 00:45:01 INFO  ScalaTestAPP:8 - INPUT: Select price as maxPrice from product order by brand asc
+2019-10-27 00:45:01 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("price").as("maxPrice")).orderBy(asc("brand"))
+2019-10-27 00:45:10 INFO  ScalaTestAPP:8 - INPUT: Select price as maxPrice from product order by brand desc
+2019-10-27 00:45:10 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("price").as("maxPrice")).orderBy(desc("brand"))
+2019-10-27 00:45:45 INFO  ScalaTestAPP:8 - INPUT: Select price as maxPrice from product order by maxPrice desc
+2019-10-27 00:45:45 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("price").as("maxPrice")).orderBy(desc("maxPrice"))
+2019-10-27 00:46:13 INFO  ScalaTestAPP:8 - INPUT: Select price as maxPrice from product order by price desc
+2019-10-27 00:46:13 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("price").as("maxPrice")).orderBy(desc("price"))
+2019-10-27 01:02:18 INFO  ScalaTestAPP:8 - INPUT: Select price as maxPrice from product order by price desc
+2019-10-27 01:02:18 INFO  ScalaTestAPP:8 - OUTPUT: product.select(col("price").as("maxPrice")).orderBy(desc("price"))
+2019-10-27 01:02:51 INFO  ScalaTestAPP:8 - INPUT: Select max(price) as maxPrice from product group by price
+2019-10-27 01:02:51 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy(col("price")).agg(max("price") as "maxPrice")
+2019-10-27 01:03:46 INFO  ScalaTestAPP:8 - INPUT: Select max(product.price) as maxPrice from product group by price
+2019-10-27 01:03:46 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy(col("price")).agg(max(product("price")) as "maxPrice")
+2019-10-27 01:04:44 INFO  ScalaTestAPP:8 - INPUT: Select max(product.price) as maxPrice from product group by product.price
+2019-10-27 01:04:44 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy(product("price")).agg(max(product("price")) as "maxPrice")
+2019-10-27 01:05:39 INFO  ScalaTestAPP:8 - INPUT: Select product.price as maxPrice from product order by product.price
+2019-10-27 01:05:39 INFO  ScalaTestAPP:8 - OUTPUT: product.select(product("price").as("maxPrice")).orderBy(asc(product("price")))
+2019-10-27 01:32:56 INFO  ScalaTestAPP:8 - INPUT: Select product.price as maxPrice from product order by product.price
+2019-10-27 01:32:56 INFO  ScalaTestAPP:8 - OUTPUT: product.select(product("price").as("maxPrice")).orderBy(product"price")
+2019-10-27 01:35:28 INFO  ScalaTestAPP:8 - INPUT: Select product.price as maxPrice from product order by product.price
+2019-10-27 01:35:28 INFO  ScalaTestAPP:8 - OUTPUT: product.select(product("price").as("maxPrice")).orderBy(product("price"))
+2019-10-27 01:35:42 INFO  ScalaTestAPP:8 - INPUT: Select product.price as maxPrice from product order by product.price asc
+2019-10-27 01:35:42 INFO  ScalaTestAPP:8 - OUTPUT: product.select(product("price").as("maxPrice")).orderBy(asc("price"))
+2019-10-27 01:35:52 INFO  ScalaTestAPP:8 - INPUT: Select product.price as maxPrice from product order by product.price desc
+2019-10-27 01:35:52 INFO  ScalaTestAPP:8 - OUTPUT: product.select(product("price").as("maxPrice")).orderBy(desc("price"))
+2019-10-27 01:40:02 INFO  ScalaTestAPP:8 - INPUT: Select product.price as maxPrice from product order by product.price desc
+2019-10-27 01:40:03 INFO  ScalaTestAPP:8 - OUTPUT: product.select(product("price").as("maxPrice")).orderBy(desc("price"))
+2019-10-27 01:40:22 INFO  ScalaTestAPP:8 - INPUT: Select max(product.price) as maxPrice from product group by product.price desc
+2019-10-27 01:40:35 INFO  ScalaTestAPP:8 - INPUT: Select max(product.price) as maxPrice from product group by product.price
+2019-10-27 01:40:35 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy(product("price")).agg(max(product("price")) as "maxPrice")
+2019-10-27 01:40:51 INFO  ScalaTestAPP:8 - INPUT: Select max(product.price) as maxPrice from product group by price
+2019-10-27 01:40:51 INFO  ScalaTestAPP:8 - OUTPUT: product.groupBy(col("price")).agg(max(product("price")) as "maxPrice")

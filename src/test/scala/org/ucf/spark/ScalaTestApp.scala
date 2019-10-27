@@ -12,8 +12,6 @@ class ScalaTestAPP extends common.Common {
     assertTrue(true)
   }
 
-
-
   val s3 = "SELECT Orders.OrderID, Customers.CustomerName, Orders.OrderDate FROM Orders INNER JOIN Customers ON Orders.CustomerID=Customers.CustomerID;"
   val s4 = "SELECT City FROM Customers"
   val s5 = "SELECT T1.creation FROM department AS T1 JOIN management AS T2 ON T1.department_id  =  T2.department_id JOIN head AS T3 ON T2.head_id  =  T3.head_id WHERE T3.born_state  =  'Alabama'"
@@ -52,13 +50,8 @@ class ScalaTestAPP extends common.Common {
   }
 
   @Test def testParseSQL_product(): Unit = {
-    val s3 = "Select asin, max(price) from product"
+    val s3 = "Select max(product.price) as maxPrice from product group by price"
     logger.info(s"INPUT: ${s3}")
     logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s3))
   }
-
-
-
-
-
 }

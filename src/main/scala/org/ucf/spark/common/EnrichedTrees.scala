@@ -80,14 +80,14 @@ trait EnrichedTrees extends Common {
         if (body.getFromItem != null) genCodeFrom(body.getFromItem, df)
         if (body.getJoins != null) genCodeJoins(body.getJoins.toList, df)
         if (body.getWhere != null) genCodeWhere(body.getWhere, df)
-        if (body.getGroupBy != null) genCodeGroupBy(body.getGroupBy, df)
+        val groupItems = if (body.getGroupBy != null) genCodeGroupBy(body.getGroupBy, df) else regEmpty
         if (body.getHaving != null) {
           unSupport = true
           df.append("Not support having statement so far, still n process")
           return regEmpty
         }
-        if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList, df, body.getGroupBy != null)
-        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList, df)
+        val aggCols = if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList,df, groupItems) else regEmpty
+        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList, df, aggCols)
         if (body.getDistinct != null) genCodeDistinct(body.getDistinct, df)
         if (body.getLimit != null) genCodeLimit(body.getLimit, df)
 
@@ -143,12 +143,44 @@ trait EnrichedTrees extends Common {
       regEmpty
     }
   }
-  implicit class genExpression(expression: Expression) {
+  implicit class genExpression(expr: Expression) {
     def genCode(df:mutable.StringBuilder):String = {
       if (unSupport == false) {
-        df.append(getExpressionString(expression))
+        df.append(this.getString(expr))
       }
       regEmpty
+    }
+    def getString(expression: Expression = expr):String  = {
+      if (expression == null) return regEmpty
+      expression match {
+        case column: Column => {
+          val colName = column.getColumnName
+          if(column.getTable != null) {
+            val tableName = tableList.getOrElse(column.getTable.getName, column.getTable.getName)
+            s"${tableName}(" + "\"" + colName + "\"" + ")"
+          } else {
+            "\"" + colName + "\""
+          }
+        } // City or t1.name
+        case func:Function => {
+          if(func.getParameters != null ){
+            val params = func.getParameters.getExpressions.toList
+              .map(getExpressionString _).mkString(",")
+            func.getName + "(" + params + ")"
+          } else {
+            func.toString
+          }
+        } // max(a)
+        case binaryExpr:BinaryExpression => {
+          val leftString = getExpressionString(binaryExpr.getLeftExpression)
+          val rightString = getExpressionString(binaryExpr.getRightExpression)
+          val op = binaryExpr.getStringExpression
+          s"${leftString} ${op} ${rightString}"
+        } // t1.name = t2.name
+        case _ => {
+          expression.toString
+        }
+      }
     }
   }
   implicit class genSetOperationList(body: SetOperationList){
@@ -173,17 +205,13 @@ trait EnrichedTrees extends Common {
           }
         }
 
-        val orderByElements = body.getOrderByElements
-        if (orderByElements != null) genCodeOrderBy(orderByElements.toList, df)
+        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList,df, regEmpty)
 
-        val limit = body.getLimit
-        if (limit != null) genCodeLimit(limit, df)
+        if (body.getLimit != null) genCodeLimit(body.getLimit, df)
 
-        val offset = body.getOffset
-        if (offset != null) df.append(offset.toString())
+        if (body.getOffset != null) df.append(body.getOffset.toString())
 
-        val fetch = body.getFetch
-        if (fetch != null) df.append(fetch.toString())
+        if (body.getFetch != null) df.append(body.getFetch.toString())
       }
       regEmpty
     }
@@ -234,7 +262,7 @@ trait EnrichedTrees extends Common {
     }
     df
   }
-  private def genCodeJoins(joins: List[Join] ,df:mutable.StringBuilder):mutable.StringBuilder = {
+  private def genCodeJoins(joins: List[Join] ,df:mutable.StringBuilder) = {
     if (unSupport == false) {
       joins.foreach(join => {
         addTable(join.getRightItem.asInstanceOf[Table])
@@ -244,7 +272,7 @@ trait EnrichedTrees extends Common {
     }
     df
   }
-  private def genCodeWhere(where:Expression,df:mutable.StringBuilder):mutable.StringBuilder  = {
+  private def genCodeWhere(where:Expression,df:mutable.StringBuilder)  = {
     if (unSupport == false) {
       val whereString = getExpressionString(where)
       df.append(s".filter(${whereString})")
@@ -252,23 +280,38 @@ trait EnrichedTrees extends Common {
     }
     df
   }
-  private def genCodeSelect(selectItems: List[SelectItem],df:mutable.StringBuilder,groupBy:Boolean):mutable.StringBuilder  = {
+  private def genCodeSelect(selectItems: List[SelectItem],df:mutable.StringBuilder,groupBy:String):String  = {
+    var aggCols = regEmpty
     if (unSupport == false) {
       var haveAgg: Boolean = false
       var havaColumn: Boolean = false
-
-      val selectString = selectItems.map(select => {
-        select match {
+      val selectString = selectItems.map(
+        select => { select match {
           case sExp: SelectExpressionItem => {
-            if (sExp.getExpression.isInstanceOf[Function]) haveAgg = true
-            if (sExp.getExpression.isInstanceOf[Column]) havaColumn = true
-            if (haveAgg && havaColumn){
-              unSupport = true
-              df.append("Current Version does not support to sellect column and agg")
-//              throw new UnsupportedOperationException("Current Version does not support to sellect column and agg")
-              return df
+            if (sExp.getExpression.isInstanceOf[Function]){ // max(price)
+              haveAgg = true
+              if(sExp.getAlias != null) {
+                getExpressionString(sExp.getExpression) + " as \"" + sExp.getAlias.getName +"\""
+              } else {
+                getExpressionString(sExp.getExpression)
+              }
+            } else if (sExp.getExpression.isInstanceOf[Column]) { // t1.a, a
+              havaColumn = true
+              val column = sExp.getExpression.asInstanceOf[Column]
+              if(sExp.getAlias != null) {
+                if (column.getTable != null) // review("asin").as("id")
+                  getExpressionString(sExp.getExpression) + ".as(\"" + sExp.getAlias.getName +"\")"
+                else // col("asin").as("id")
+                  s"col(" + getExpressionString(sExp.getExpression) + ").as(\"" + sExp.getAlias.getName +"\")"
+              } else {
+                if (column.getTable != null)
+                  getExpressionString(sExp.getExpression) // review("asin")
+                else
+                  s"col(" + getExpressionString(sExp.getExpression) + ")" // col("asin")
+              }
+            } else {
+              getExpressionString(sExp.getExpression)
             }
-            getExpressionString(sExp.getExpression)
           }
           case aTcolumns: AllTableColumns => {
             aTcolumns.toString
@@ -280,18 +323,38 @@ trait EnrichedTrees extends Common {
             logger.info("select item is wrong" + select)
             select.toString
           }
-        }
-      }).mkString(",")
-      if (groupBy == true) {
+        }}).mkString(",")
+      /*
+      *  Check following condition that not support by current
+      *  1. select min(asin), price from product
+      *  2. select asin, price from product group by brand
+      * */
+      if (haveAgg && havaColumn) {
+        this.unSupport = true
+        df.append("Current Version does not support to sellect column and agg")
+        //              throw new UnsupportedOperationException("Current Version does not support to sellect column and agg")
+        return aggCols
+      } else if ((!groupBy.isEmpty) && (havaColumn)){
+        this.unSupport = true
+        df.append("Current Version does not support groupBy operation without agg funcs in select")
+        //              throw new UnsupportedOperationException("Current Version does not support to sellect column and agg")
+        return aggCols
+      }
+
+      if (!groupBy.isEmpty) {
+//        df.append(s".agg(${selectString}).drop(${groupBy})")
         df.append(s".agg(${selectString})")
       } else if (haveAgg == true) {
-        df.append(s".groupBy().agg(${selectString})")
+//        df.append(s".groupBy().agg(${selectString})")
+        df.append(s".agg(${selectString})")
+        aggCols = selectString
       } else
         df.append(s".select(${selectString})")
     }
-    df
+    return aggCols
   }
-  private def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder):mutable.StringBuilder  = {
+  private def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder)  = {
+    var groupExpressionsString = regEmpty
     if (unSupport == false) {
       //      people.filter("age > 30")
       //        .join(department, people("deptId") === department("id"))
@@ -304,40 +367,59 @@ trait EnrichedTrees extends Common {
       //      selectItem.asInstanceOf[SelectExpressionItem].toString
       //    }).mkString(",")
 
-      val groupExpressionsString = groupByElement
+      groupExpressionsString = groupByElement
         .getGroupByExpressions
-        .map(getExpressionString _)
+        .map( expression => {
+          val expStringList = expression.getString().split("[()]") // column name will be in the last pos
+          if (expStringList.size > 1) // which means already include a table, e.g product("asin")
+            expStringList.head + "(" + expStringList.last + ")" // col("asin")
+          else
+            "col(" + expStringList.last + ")" // col("asin")
+        })
         .mkString(",")
       //    df.append(s".groupBy(${groupExpressionsString}).agg(${aggSelectList})")
       df.append(s".groupBy(${groupExpressionsString})")
     }
-    df
-
+    groupExpressionsString
   }
-  private def genCodeOrderBy(orderByElement: List[OrderByElement] ,df:mutable.StringBuilder):mutable.StringBuilder  = {
+  private def genCodeOrderBy(orderByElement: List[OrderByElement] ,df:mutable.StringBuilder, aggCols: String):mutable.StringBuilder  = {
     if (unSupport == false) {
-      val eleString = orderByElement.map(ele => {
+      if (aggCols.isEmpty) {
+        val eleString = orderByElement.map(ele => {
+          val expStringList = ele.getExpression.getString().split("[()]") // column name will be in the last pos
+          val order = if (!ele.isAsc) "desc"
+          else if (ele.isAscDescPresent) "asc"
+          else regEmpty
 
-        val order = if (ele.isAsc)
-          "asc("
-        else
-          "desc("
-        order + getExpressionString(ele.getExpression) + ")"
-      }).mkString(",")
-      df.append(s".orderBy($eleString)")
+          if(order != regEmpty) { // User specify order way (asc or desc) explicitly
+            order + "(" + expStringList.last + ")"
+          } else {
+            if (expStringList.size > 1)
+              expStringList.head + "(" + expStringList.last + ")"
+            else
+              expStringList.mkString
+          }
+        }).mkString(",")
+        df.append(s".orderBy($eleString)")
+      } else {
+        this.unSupport = true
+        df.append("Current Version does not support to order by from an agg selection without group by")
+        //              throw new UnsupportedOperationException("Current Version does not support to sellect column and agg")
+        return df
+      }
     }
     df
   }
-  private def genCodeDistinct(distinct: Distinct ,df:mutable.StringBuilder):mutable.StringBuilder  = {
+  private def genCodeDistinct(distinct: Distinct ,df:mutable.StringBuilder)  = {
     if (unSupport == false) {
       df.append(s".distinct")
     }
     df
   }
-  private def genCodeLimit(limit: Limit ,df:mutable.StringBuilder):mutable.StringBuilder  = {
+  private def genCodeLimit(limit: Limit ,df:mutable.StringBuilder)  = {
     if (unSupport == false) {
       val nums = getExpressionString(limit.getRowCount)
-      df.append(s".take($nums)")
+      df.append(s".limit($nums)")
     }
     df
   }
