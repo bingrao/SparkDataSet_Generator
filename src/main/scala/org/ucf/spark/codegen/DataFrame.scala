@@ -22,7 +22,8 @@ object DataFrame extends common.EnrichedTrees {
     if(unSupport) {
       this.unSupport = false
       logger.info(s"${unSupportNotice} INPUT SQL: ${sql} ${unSupportNotice}")
-      logger.info(s"${unSupportNotice} OUTPUT DataFrame: ${dataframe.toString()} ${unSupportNotice}")
+      logger.info(s"${unSupportNotice} OUTPUT DataFrame: ${dataframe.toString()} ${unSupportNotice}\n")
+      dataframe.append(unSupportNotice) // doest not remove this statement, will used in spider filter
     }
 
     logger.debug("OUTPUT DataFrame: " + dataframe.toString())
