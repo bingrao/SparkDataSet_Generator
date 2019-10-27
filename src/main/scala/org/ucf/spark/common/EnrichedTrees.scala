@@ -150,9 +150,11 @@ trait EnrichedTrees extends Common {
     }
     def getString(expression: Expression = expr):String  = {
       if (expression == null) return regEmpty
+      logger.debug("getString " + expression)
       var subSelect:Boolean = false
       var expString:String = expression match {
         case column: Column => {
+          logger.debug("Column " + column)
           val colName = column.getColumnName
           if(column.getTable != null) {
             val tableName = tableList.getOrElse(column.getTable.getName, column.getTable.getName)
@@ -162,15 +164,18 @@ trait EnrichedTrees extends Common {
           }
         } // City or t1.name
         case func:Function => {
+          logger.debug("func " + func)
           if(func.getParameters != null ){
             val params = func.getParameters.getExpressions.toList
               .map(_.getString()).mkString(",")
             func.getName + "(" + params + ")"
           } else {
-            func.toString
+            logger.debug("func No parameter" + func)
+            func.getName + "(\"*\")"
           }
         } // max(a)
         case binaryExpr:BinaryExpression => {
+          logger.debug("binaryExpr " + binaryExpr)
           if(binaryExpr.getLeftExpression.isInstanceOf[SubSelect]) subSelect = true
           if(binaryExpr.getRightExpression.isInstanceOf[SubSelect]) subSelect = true
           binaryExpr match {
@@ -202,8 +207,8 @@ trait EnrichedTrees extends Common {
           val end = between.getBetweenExpressionEnd.getString()
           s"$left >= $start and $left =< $end"
         }
-
         case _ => {
+          logger.debug("Fail to match type " + expression)
           expression.toString
         }
       }
@@ -340,20 +345,20 @@ trait EnrichedTrees extends Common {
             sExp.getExpression match {
               case func:Function => {
                 haveAgg = true
-                val sExpStringArray = func.getString().split("[()]")
-                val sExprString = if (sExpStringArray.last.contains("*")){
-                  allAlias = true
-                  if(sExpStringArray.size > 1)
-                    sExpStringArray.head + "(\"all.*\")"
-                  else
-                    "(\"all.*\")"
-                } else {
-                  if(sExpStringArray.size > 1)
-                    sExpStringArray.head + "(" + sExpStringArray.last + ")"
-                  else
-                    sExpStringArray.last
-                }
-
+//                val sExpStringArray = func.getString().split("[()]")
+//                val sExprString = if (sExpStringArray.last.contains("*")){
+//                  allAlias = true
+//                  if(sExpStringArray.size > 1)
+//                    sExpStringArray.head + "(\"all.*\")"
+//                  else
+//                    "(\"all.*\")"
+//                } else {
+//                  if(sExpStringArray.size > 1)
+//                    sExpStringArray.head + "(" + sExpStringArray.last + ")"
+//                  else
+//                    sExpStringArray.last
+//                }
+                val sExprString = func.getString()
                 if(sExp.getAlias != null) {
                   sExprString + " as \"" + sExp.getAlias.getName +"\""
                 } else {
@@ -429,7 +434,7 @@ trait EnrichedTrees extends Common {
           }
           case aColumns: AllColumns => {
             logger.debug("AllColums " + aColumns)
-            "col(\"" + aColumns.toString + ")\""
+            "col(\"" + aColumns.toString + "\")"
           }
           case _ => {
             logger.error("select item is wrong" + select)
@@ -454,23 +459,23 @@ trait EnrichedTrees extends Common {
       /**
         * For select count(*) from product, there is a asterisk, so we need to add an alias "all" on [[product]] table
         */
-      if(allAlias) {
-        val dfSize = df.size
-        var tableName = regEmpty
-        var tableIndex = Int.MinValue
-        tableList.foreach{
-          case (alias, name) => {
-            val index = df.indexOf(name)
-            if((index != -1) &&(index > tableIndex)){
-              tableIndex =  index
-              tableName = name
-            }
-          }
-        }
-        if(tableName != regEmpty) {
-          df.insert(tableIndex + tableName.length, ".alias(\"all\")")
-        }
-      }
+//      if(allAlias) {
+//        val dfSize = df.size
+//        var tableName = regEmpty
+//        var tableIndex = Int.MinValue
+//        tableList.foreach{
+//          case (alias, name) => {
+//            val index = df.indexOf(name)
+//            if((index != -1) &&(index > tableIndex)){
+//              tableIndex =  index
+//              tableName = name
+//            }
+//          }
+//        }
+//        if(tableName != regEmpty) {
+//          df.insert(tableIndex + tableName.length, ".alias(\"all\")")
+//        }
+//      }
 
       if (!groupBy.isEmpty || haveAgg) {
         df.append(s".agg($selectString)")
