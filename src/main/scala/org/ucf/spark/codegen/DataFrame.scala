@@ -7,7 +7,7 @@ import net.sf.jsqlparser.statement.select._
 object DataFrame extends common.EnrichedTrees {
   def codeGen(sql:String):String = {
 
-    logger.debug("\n\n******************************************")
+    logger.debug("******************************************\n\n")
     logger.debug("INPUT SQL: " + sql)
 
     val statement = CCJSqlParserUtil.parse(sql)
@@ -20,11 +20,9 @@ object DataFrame extends common.EnrichedTrees {
 
 
     if(unSupport) {
-//      logger.info(s"${unSupportNotice} I cannot support current SQL ...")
-//      logger.info(s"${unSupportNotice} INPUT SQL: " + sql)
-//      logger.info(s"${unSupportNotice} OUTPUT DataFrame: " + dataframe.toString())
-      dataframe.append(unSupportNotice)
       this.unSupport = false
+      logger.info(s"${unSupportNotice} INPUT SQL: ${sql} ${unSupportNotice}")
+      logger.info(s"${unSupportNotice} OUTPUT DataFrame: ${dataframe.toString()} ${unSupportNotice}")
     }
 
     logger.debug("OUTPUT DataFrame: " + dataframe.toString())

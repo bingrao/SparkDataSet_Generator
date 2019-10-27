@@ -3,8 +3,8 @@ package implement
 import java.io.FileWriter
 import scala.io.Source
 import org.json4s.native.JsonMethods.parse
-import org.json4s.native.Serialization.write
 import org.json4s.{DefaultFormats, JObject, JString}
+import org.json4s.native.Serialization.writePretty
 
 
 /**
@@ -34,7 +34,7 @@ object SpiderFileReader {
 
     val fw = new FileWriter("output/train_spider_output.json")
 
-    fw.write(write(jObject))
+    fw.write(writePretty(jObject))
     fw.close()
   }
 }

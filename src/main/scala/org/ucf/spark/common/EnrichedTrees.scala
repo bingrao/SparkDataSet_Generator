@@ -6,6 +6,7 @@ import net.sf.jsqlparser.statement.values._
 import net.sf.jsqlparser.schema._
 import net.sf.jsqlparser.statement.select.Join
 import net.sf.jsqlparser.expression._
+import net.sf.jsqlparser.expression.operators.relational._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConversions._
@@ -21,6 +22,7 @@ trait EnrichedTrees extends Common {
   var joinList = new ListBuffer[Join]() // All Join list
   var selectList = new ListBuffer[SelectItem]() // All select list
   var unSupport:Boolean = false
+  var currentData:String = regEmpty
 
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
@@ -152,7 +154,8 @@ trait EnrichedTrees extends Common {
     }
     def getString(expression: Expression = expr):String  = {
       if (expression == null) return regEmpty
-      expression match {
+      var subSelect:Boolean = false
+      var expString:String = expression match {
         case column: Column => {
           val colName = column.getColumnName
           if(column.getTable != null) {
@@ -172,16 +175,65 @@ trait EnrichedTrees extends Common {
           }
         } // max(a)
         case binaryExpr:BinaryExpression => {
-          val leftString = binaryExpr.getLeftExpression.getString()
-          val rightString = binaryExpr.getRightExpression.getString()
-          val op = binaryExpr.getStringExpression
-          s"${leftString} ${op} ${rightString}"
+          if(binaryExpr.getLeftExpression.isInstanceOf[SubSelect]) subSelect = true
+          if(binaryExpr.getRightExpression.isInstanceOf[SubSelect]) subSelect = true
+          binaryExpr match {
+            case like:LikeExpression => {
+              unSupport = true
+              "Unsupport like operation in where statement"
+            }
+            case _ => {
+              val leftString = binaryExpr.getLeftExpression.getString()
+              val rightString = binaryExpr.getRightExpression.getString()
+              val op = binaryExpr.getStringExpression.toUpperCase
+              op match {
+                case "=" => s"${leftString} === ${rightString}"
+                case "!=" => s"${leftString} =!= ${rightString}"
+                case "AND" => s"${leftString} && ${rightString}"
+                case "OR" => s"${leftString} || ${rightString}"
+                case _ => s"${leftString} ${op} ${rightString}"
+              }
+            }
+          }
         } // t1.name = t2.name
+        case between:Between => {
+//          val leftString = between.getLeftExpression.getString()
+//          val left = if(leftString.split("[()]").size > 1) { // include table name
+//            leftString
+//          } else {
+//            "col(" + leftString + ")"
+//          }
+          if(between.getLeftExpression.isInstanceOf[SubSelect]) subSelect = true
+          if(between.getBetweenExpressionStart.isInstanceOf[SubSelect]) subSelect = true
+          if(between.getBetweenExpressionEnd.isInstanceOf[SubSelect]) subSelect = true
+
+          val left = getColumnName(between.getLeftExpression)
+          val start = between.getBetweenExpressionStart.getString()
+          val end = between.getBetweenExpressionEnd.getString()
+          s"${left} >= ${start} and ${left} =< ${end}"
+        }
+
         case _ => {
           expression.toString
         }
       }
+      if(subSelect){
+        unSupport = true
+        expString + "Unsupport subselect statement in a exmpression"
+      } else
+        expString
+
     }
+
+    def isFuncOrBinary = {
+      if(expr.isInstanceOf[Function])
+        true
+      else if(expr.isInstanceOf[BinaryExpression])
+        true
+      else
+        false
+    }
+
   }
   implicit class genSetOperationList(body: SetOperationList){
     def genCode(df:mutable.StringBuilder):String = {
@@ -285,16 +337,32 @@ trait EnrichedTrees extends Common {
     if (unSupport == false) {
       var haveAgg: Boolean = false
       var havaColumn: Boolean = false
+      var allAlias: Boolean = false
       val selectString = selectItems.map(
         select => { select match {
           case sExp: SelectExpressionItem => {
             if (sExp.getExpression.isInstanceOf[Function]){ // max(price)
               haveAgg = true
-              if(sExp.getAlias != null) {
-                sExp.getExpression.getString() + " as \"" + sExp.getAlias.getName +"\""
+              val sExpStringArray = sExp.getExpression.getString().split("[()]")
+              val sExprString = if (sExpStringArray.last.contains("*")){
+                allAlias = true
+                if(sExpStringArray.size > 1)
+                  sExpStringArray.head + "(\"all.*\")"
+                else
+                  "(\"all.*\")"
               } else {
-                sExp.getExpression.getString()
+                if(sExpStringArray.size > 1)
+                  sExpStringArray.head + "(" + sExpStringArray.last + ")"
+                else
+                  sExpStringArray.last
               }
+
+              if(sExp.getAlias != null) {
+                sExprString + " as \"" + sExp.getAlias.getName +"\""
+              } else {
+                sExprString
+              }
+
             } else if (sExp.getExpression.isInstanceOf[Column]) { // t1.a, a
               havaColumn = true
               val column = sExp.getExpression.asInstanceOf[Column]
@@ -341,11 +409,30 @@ trait EnrichedTrees extends Common {
         return aggCols
       }
 
-      if (!groupBy.isEmpty) {
-//        df.append(s".agg(${selectString}).drop(${groupBy})")
-        df.append(s".agg(${selectString})")
-      } else if (haveAgg == true) {
-//        df.append(s".groupBy().agg(${selectString})")
+      /**
+        * For select count(*) from product, there is a asterisk, so we need to add an alias "all" on [[product]] table
+        */
+      if(allAlias == true) {
+        val dfSize = df.size
+        var tableName = regEmpty
+        var tableIndex = Int.MinValue
+        tableList.foreach{
+          case (alias, name) => {
+            val index = df.indexOf(name)
+//            logger.debug(s"[Loop] Table name is: ${name}, Index is ${index}")
+            if((index != -1) &&(index > tableIndex)){
+              tableIndex =  index
+              tableName = name
+            }
+          }
+        }
+//        logger.debug(s"Table name is: ${tableName}, Index is ${tableIndex}, DataFrame: ${df.toString()}")
+        if(tableName != regEmpty) {
+          df.insert(tableIndex + tableName.size, ".alias(\"all\")")
+        }
+      }
+
+      if (!groupBy.isEmpty || (haveAgg == true)) {
         df.append(s".agg(${selectString})")
         aggCols = selectString
       } else
@@ -366,7 +453,6 @@ trait EnrichedTrees extends Common {
       //    }).map(selectItem => {
       //      selectItem.asInstanceOf[SelectExpressionItem].toString
       //    }).mkString(",")
-
       groupExpressionsString = groupByElement
         .getGroupByExpressions
         .map( expression => {
@@ -384,8 +470,12 @@ trait EnrichedTrees extends Common {
   }
   private def genCodeOrderBy(orderByElement: List[OrderByElement] ,df:mutable.StringBuilder, aggCols: String):mutable.StringBuilder  = {
     if (unSupport == false) {
+      var isFuncOrBinary:Boolean = false
       if (aggCols.isEmpty) {
         val eleString = orderByElement.map(ele => {
+          if(ele.getExpression.isFuncOrBinary) {
+            isFuncOrBinary = true
+          }
           val expStringList = ele.getExpression.getString().split("[()]") // column name will be in the last pos
           val order = if (!ele.isAsc) "desc"
           else if (ele.isAscDescPresent) "asc"
@@ -401,10 +491,14 @@ trait EnrichedTrees extends Common {
           }
         }).mkString(",")
         df.append(s".orderBy($eleString)")
+        if(isFuncOrBinary){
+          this.unSupport = true
+          df.append("Current Version does not support to order by with a func or binary operation")
+          return df
+        }
       } else {
         this.unSupport = true
         df.append("Current Version does not support to order by from an agg selection without group by")
-        //              throw new UnsupportedOperationException("Current Version does not support to sellect column and agg")
         return df
       }
     }
@@ -439,5 +533,15 @@ trait EnrichedTrees extends Common {
     this.tableList = new mutable.HashMap[String, String]()
     this.joinList = new ListBuffer[Join]()
     this.selectList = new ListBuffer[SelectItem]()
+  }
+  private def getColumnName(expression: Expression):String = {
+    val name = expression.getString()
+    if(expression.isInstanceOf[Column])
+      if(name.split("[()]").size > 1)
+        name
+      else
+        "col(" + name + ")"
+    else
+      name
   }
 }
