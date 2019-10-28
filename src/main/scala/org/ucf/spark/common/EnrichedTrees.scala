@@ -83,12 +83,8 @@ trait EnrichedTrees extends Common {
         if (body.getJoins != null) genCodeJoins(body.getJoins.toList, df)
         if (body.getWhere != null) genCodeWhere(body.getWhere, df)
         val groupItems = if (body.getGroupBy != null) genCodeGroupBy(body.getGroupBy, df) else regEmpty
-        if (body.getHaving != null) {
-          unSupport = true
-          df.append("Not support having statement so far, still n process")
-          return regEmpty
-        }
         val aggCols = if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList,df, groupItems) else regEmpty
+        if (body.getHaving != null) genCodeHaving(body.getHaving, df, groupItems)
         if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList, df, aggCols)
         if (body.getDistinct != null) genCodeDistinct(body.getDistinct, df)
         if (body.getLimit != null) genCodeLimit(body.getLimit, df)
@@ -150,11 +146,9 @@ trait EnrichedTrees extends Common {
     }
     def getString(expression: Expression = expr):String  = {
       if (expression == null) return regEmpty
-      logger.debug("getString " + expression)
       var subSelect:Boolean = false
       var expString:String = expression match {
         case column: Column => {
-          logger.debug("Column " + column)
           val colName = column.getColumnName
           if(column.getTable != null) {
             val tableName = tableList.getOrElse(column.getTable.getName, column.getTable.getName)
@@ -164,18 +158,15 @@ trait EnrichedTrees extends Common {
           }
         } // City or t1.name
         case func:Function => {
-          logger.debug("func " + func)
           if(func.getParameters != null ){
             val params = func.getParameters.getExpressions.toList
               .map(_.getString()).mkString(",")
             func.getName + "(" + params + ")"
           } else {
-            logger.debug("func No parameter" + func)
             func.getName + "(\"*\")"
           }
         } // max(a)
         case binaryExpr:BinaryExpression => {
-          logger.debug("binaryExpr " + binaryExpr)
           if(binaryExpr.getLeftExpression.isInstanceOf[SubSelect]) subSelect = true
           if(binaryExpr.getRightExpression.isInstanceOf[SubSelect]) subSelect = true
           binaryExpr match {
@@ -184,8 +175,15 @@ trait EnrichedTrees extends Common {
               "Unsupport like operation in where statement"
             }
             case _ => {
-              val leftString = binaryExpr.getLeftExpression.getString()
-              val rightString = binaryExpr.getRightExpression.getString()
+              /**
+                *  There is a bug here, Because a string is parsed as a column.
+                *  For example "asin" > "a", where "asin" is a column name, "a"
+                *  is just a string. Here the generate code will be col("asin") > col("a")
+                *  As we can see, it is wrong, the corret answer should be col("asin") > "a"
+                *  So metadata of the corresponding table is used to fixe out this issue.
+                */
+              val leftString = getColumnName(binaryExpr.getLeftExpression)
+              val rightString = getColumnName(binaryExpr.getRightExpression)
               val op = binaryExpr.getStringExpression.toUpperCase
               op match {
                 case "=" => s"$leftString === $rightString"
@@ -208,7 +206,6 @@ trait EnrichedTrees extends Common {
           s"$left >= $start and $left =< $end"
         }
         case _ => {
-          logger.debug("Fail to match type " + expression)
           expression.toString
         }
       }
@@ -224,16 +221,6 @@ trait EnrichedTrees extends Common {
       case _:BinaryExpression => true
       case _ => false
     }
-
-//    {
-//      if(expr.isInstanceOf[Function])
-//        true
-//      else if(expr.isInstanceOf[BinaryExpression])
-//        true
-//      else
-//        false
-//    }
-
   }
   implicit class genSetOperationList(body: SetOperationList){
     def genCode(df:mutable.StringBuilder):String = {
@@ -261,9 +248,9 @@ trait EnrichedTrees extends Common {
 
         if (body.getLimit != null) genCodeLimit(body.getLimit, df)
 
-        if (body.getOffset != null) df.append(body.getOffset.toString())
+        if (body.getOffset != null) df.append(body.getOffset.toString)
 
-        if (body.getFetch != null) df.append(body.getFetch.toString())
+        if (body.getFetch != null) df.append(body.getFetch.toString)
       }
       regEmpty
     }
@@ -271,7 +258,7 @@ trait EnrichedTrees extends Common {
 
 
   private def genCodeFrom(from:FromItem ,df:mutable.StringBuilder):mutable.StringBuilder  = {
-    if (unSupport == false){
+    if (!unSupport){
       from match {
         case subjoin: SubJoin => {
           val leftTable = subjoin.getLeft.asInstanceOf[Table]
@@ -332,6 +319,19 @@ trait EnrichedTrees extends Common {
     }
     df
   }
+  private def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder)  = {
+    var groupExpressionsString = regEmpty
+    if (!unSupport) {
+      groupExpressionsString = groupByElement
+        .getGroupByExpressions
+        .map( expression => {
+          getColumnName(expression)
+        })
+        .mkString(",")
+      df.append(s".groupBy($groupExpressionsString)")
+    }
+    groupExpressionsString
+  }
   private def genCodeSelect(selectItems: List[SelectItem],df:mutable.StringBuilder,groupBy:String):String  = {
     var aggCols = regEmpty
     if (!unSupport) {
@@ -341,23 +341,22 @@ trait EnrichedTrees extends Common {
       val selectString = selectItems.map(
         select => { select match {
           case sExp: SelectExpressionItem => {
-            logger.debug("SelectExpressionItem " + sExp)
             sExp.getExpression match {
               case func:Function => {
                 haveAgg = true
-//                val sExpStringArray = func.getString().split("[()]")
-//                val sExprString = if (sExpStringArray.last.contains("*")){
-//                  allAlias = true
-//                  if(sExpStringArray.size > 1)
-//                    sExpStringArray.head + "(\"all.*\")"
-//                  else
-//                    "(\"all.*\")"
-//                } else {
-//                  if(sExpStringArray.size > 1)
-//                    sExpStringArray.head + "(" + sExpStringArray.last + ")"
-//                  else
-//                    sExpStringArray.last
-//                }
+                //                val sExpStringArray = func.getString().split("[()]")
+                //                val sExprString = if (sExpStringArray.last.contains("*")){
+                //                  allAlias = true
+                //                  if(sExpStringArray.size > 1)
+                //                    sExpStringArray.head + "(\"all.*\")"
+                //                  else
+                //                    "(\"all.*\")"
+                //                } else {
+                //                  if(sExpStringArray.size > 1)
+                //                    sExpStringArray.head + "(" + sExpStringArray.last + ")"
+                //                  else
+                //                    sExpStringArray.last
+                //                }
                 val sExprString = func.getString()
                 if(sExp.getAlias != null) {
                   sExprString + " as \"" + sExp.getAlias.getName +"\""
@@ -368,16 +367,8 @@ trait EnrichedTrees extends Common {
               case column:Column => {
                 havaColumn = true
                 if(sExp.getAlias != null) {
-                  //                if (column.getTable != null) // review("asin").as("id")
-                  //                  sExp.getExpression.getString() + ".as(\"" + sExp.getAlias.getName +"\")"
-                  //                else // col("asin").as("id")
-                  //                  s"col(" + sExp.getExpression.getString() + ").as(\"" + sExp.getAlias.getName +"\")"
                   getColumnName(column) + ".as(\"" + sExp.getAlias.getName +"\")"
                 } else {
-                  //                if (column.getTable != null)
-                  //                  sExp.getExpression.getString() // review("asin")
-                  //                else
-                  //                  s"col(" + sExp.getExpression.getString() + ")" // col("asin")
                   getColumnName(column)
                 }
               }
@@ -385,55 +376,11 @@ trait EnrichedTrees extends Common {
                 getColumnName(sExp.getExpression)
               }
             }
-
-//            if (sExp.getExpression.isInstanceOf[Function]){ // max(price)
-//              haveAgg = true
-//              val sExpStringArray = sExp.getExpression.getString().split("[()]")
-//              val sExprString = if (sExpStringArray.last.contains("*")){
-//                allAlias = true
-//                if(sExpStringArray.size > 1)
-//                  sExpStringArray.head + "(\"all.*\")"
-//                else
-//                  "(\"all.*\")"
-//              } else {
-//                if(sExpStringArray.size > 1)
-//                  sExpStringArray.head + "(" + sExpStringArray.last + ")"
-//                else
-//                  sExpStringArray.last
-//              }
-//
-//              if(sExp.getAlias != null) {
-//                sExprString + " as \"" + sExp.getAlias.getName +"\""
-//              } else {
-//                sExprString
-//              }
-//
-//            } else if (sExp.getExpression.isInstanceOf[Column]) { // t1.a, a
-//              havaColumn = true
-//              val column = sExp.getExpression.asInstanceOf[Column]
-//              if(sExp.getAlias != null) {
-////                if (column.getTable != null) // review("asin").as("id")
-////                  sExp.getExpression.getString() + ".as(\"" + sExp.getAlias.getName +"\")"
-////                else // col("asin").as("id")
-////                  s"col(" + sExp.getExpression.getString() + ").as(\"" + sExp.getAlias.getName +"\")"
-//                getColumnName(sExp.getExpression) + ".as(\"" + sExp.getAlias.getName +"\")"
-//              } else {
-////                if (column.getTable != null)
-////                  sExp.getExpression.getString() // review("asin")
-////                else
-////                  s"col(" + sExp.getExpression.getString() + ")" // col("asin")
-//                getColumnName(sExp.getExpression)
-//              }
-//            } else {
-//              getColumnName(sExp.getExpression)
-//            }
           }
           case aTcolumns: AllTableColumns => {
-            logger.debug("AllTableColumns " + aTcolumns)
             aTcolumns.toString
           }
           case aColumns: AllColumns => {
-            logger.debug("AllColums " + aColumns)
             "col(\"" + aColumns.toString + "\")"
           }
           case _ => {
@@ -459,23 +406,23 @@ trait EnrichedTrees extends Common {
       /**
         * For select count(*) from product, there is a asterisk, so we need to add an alias "all" on [[product]] table
         */
-//      if(allAlias) {
-//        val dfSize = df.size
-//        var tableName = regEmpty
-//        var tableIndex = Int.MinValue
-//        tableList.foreach{
-//          case (alias, name) => {
-//            val index = df.indexOf(name)
-//            if((index != -1) &&(index > tableIndex)){
-//              tableIndex =  index
-//              tableName = name
-//            }
-//          }
-//        }
-//        if(tableName != regEmpty) {
-//          df.insert(tableIndex + tableName.length, ".alias(\"all\")")
-//        }
-//      }
+      //      if(allAlias) {
+      //        val dfSize = df.size
+      //        var tableName = regEmpty
+      //        var tableIndex = Int.MinValue
+      //        tableList.foreach{
+      //          case (alias, name) => {
+      //            val index = df.indexOf(name)
+      //            if((index != -1) &&(index > tableIndex)){
+      //              tableIndex =  index
+      //              tableName = name
+      //            }
+      //          }
+      //        }
+      //        if(tableName != regEmpty) {
+      //          df.insert(tableIndex + tableName.length, ".alias(\"all\")")
+      //        }
+      //      }
 
       if (!groupBy.isEmpty || haveAgg) {
         df.append(s".agg($selectString)")
@@ -485,18 +432,14 @@ trait EnrichedTrees extends Common {
     }
     return aggCols
   }
-  private def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder)  = {
-    var groupExpressionsString = regEmpty
-    if (!unSupport) {
-      groupExpressionsString = groupByElement
-        .getGroupByExpressions
-        .map( expression => {
-          getColumnName(expression)
-        })
-        .mkString(",")
-      df.append(s".groupBy($groupExpressionsString)")
+  private def genCodeHaving(havingExpr: Expression,df:mutable.StringBuilder, groupBy:String) = {
+    if(groupBy.isEmpty){
+     unSupport = true
+      df.append("Need groupBy operation if you want to use having statement")
+    } else {
+      val havingString = havingExpr.getString()
+      df.append(s".filter($havingString)")
     }
-    groupExpressionsString
   }
   private def genCodeOrderBy(orderByElement: List[OrderByElement] ,df:mutable.StringBuilder, aggCols: String):mutable.StringBuilder  = {
     if (!unSupport) {
@@ -515,10 +458,6 @@ trait EnrichedTrees extends Common {
             order + "(" + expStringList.last + ")"
           } else {
             getColumnName(ele.getExpression)
-//            if (expStringList.size > 1)
-//              expStringList.head + "(" + expStringList.last + ")"
-//            else
-//              expStringList.mkString
           }
         }).mkString(",")
         df.append(s".orderBy($eleString)")
