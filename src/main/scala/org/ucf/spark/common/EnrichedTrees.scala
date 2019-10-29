@@ -7,8 +7,9 @@ import net.sf.jsqlparser.schema._
 import net.sf.jsqlparser.statement.select.Join
 import net.sf.jsqlparser.expression._
 import net.sf.jsqlparser.expression.operators.relational._
+import net.sf.jsqlparser.expression.operators.arithmetic._
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
-
+import net.sf.jsqlparser.util.cnfexpression._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConversions._
@@ -147,6 +148,53 @@ trait EnrichedTrees extends Common {
       if (expression == null) return regEmpty
       var subSelect:Boolean = false
       var expString:String = expression match {
+
+        case operation @ (_:JsonExpression |
+                          _:NumericBind |
+                          _: ArrayExpression |
+                          _:ExistsExpression |
+                          _:InExpression |
+                          _:KeepExpression |
+                          _:CaseExpression |
+                          _:OracleHint |
+                          _:AnalyticExpression |
+                          _:IsBooleanExpression |
+                          _:NotExpression |
+                          _:ValueListExpression |
+                          _:RowConstructor |
+//                          _:DoubleValue |
+                          _:CastExpression |
+                          _:UserVariable |
+                          _:CollateExpression |
+                          _:MySQLGroupConcat |
+                          _:AllComparisonExpression |
+                          _:ExtractExpression |
+                          _:FullTextSearch |
+                          _:OracleHierarchicalExpression |
+                          _:IsNullExpression |
+                          _:AnyComparisonExpression |
+                          _:SignedExpression |
+//                          _:NullValue |
+                          _:SubSelect |
+                          _:JdbcNamedParameter |
+                          _:IntervalExpression |
+                          _:WhenClause |
+//                          _:LongValue |
+                          _:JdbcParameter |
+//                          _:TimeValue |
+                          _:MultipleExpression |
+//                          _:TimestampValue |
+//                          _:TimeKeyExpression |
+//                          _:DateValue |
+                          _:NextValExpression |
+//                          _:StringValue |
+                          _:Parenthesis |
+                          _:DateTimeLiteralExpression) => {
+          unSupport = true
+          val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
+          exceptionList += new Throwable(message)
+          message
+        }
         case column: Column => {
           val colName = column.getColumnName
           if(column.getTable != null) {
@@ -166,14 +214,22 @@ trait EnrichedTrees extends Common {
           }
         } // max(a)
         case binaryExpr:BinaryExpression => {
-          if(binaryExpr.getLeftExpression.isInstanceOf[SubSelect]) subSelect = true
-          if(binaryExpr.getRightExpression.isInstanceOf[SubSelect]) subSelect = true
           binaryExpr match {
-            case like:LikeExpression => {
+            case operation @ (_:LikeExpression |
+                              _:SimilarToExpression |
+                              _:RegExpMySQLOperator |
+                              _:OldOracleJoinBinaryExpression |
+                              _:RegExpMatchOperator |
+                              _:IntegerDivision |
+                              _:BitwiseLeftShift |
+                              _:BitwiseRightShift |
+                              _:JsonOperator) => {
               unSupport = true
-              exceptionList += new Throwable("Unsupport like operation in where statement")
-              "Unsupport like operation in where statement"
+              val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
+              exceptionList += new Throwable(message)
+              message
             }
+
             case _ => {
               /**
                 *  There is a bug here, Because a string is parsed as a column.
@@ -183,7 +239,7 @@ trait EnrichedTrees extends Common {
                 *  So metadata of the corresponding table is used to fixe out this issue.
                 */
               val leftString = getColumnName(binaryExpr.getLeftExpression)
-              val rightString = getColumnName(binaryExpr.getRightExpression)
+              val rightString = binaryExpr.getRightExpression.getString()
               val op = binaryExpr.getStringExpression.toUpperCase
               op match {
                 case "=" => s"$leftString === $rightString"
@@ -209,13 +265,7 @@ trait EnrichedTrees extends Common {
           expression.toString
         }
       }
-      if(subSelect){
-        unSupport = true
-        exceptionList += new Throwable("Unsupport subselect statement in a exmpression")
-        expString + "Unsupport subselect statement in a exmpression"
-      } else
-        expString
-
+      expString
     }
     def isFuncOrBinary(expression: Expression = expr) = expression match {
       case _:Function => true
