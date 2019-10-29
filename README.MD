@@ -32,7 +32,7 @@ SELECT count(*) FROM head WHERE age  >  56
 #### output dataframe
 
 ```
-head.where("age" > 56).groupBy().agg(count(*))
+head.where(col("age") > 56).agg(count("*"))
 ```
 
 Please refer to the more case study in File [case examples](case_example.log)
