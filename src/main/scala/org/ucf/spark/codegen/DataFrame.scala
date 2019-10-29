@@ -3,8 +3,6 @@ package codegen
 
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.select._
-
-import scala.reflect.internal.Trees
 import scala.util.{Failure, Success, Try}
 
 class DataFrame extends common.EnrichedTrees {
@@ -28,20 +26,11 @@ class DataFrame extends common.EnrichedTrees {
       }
 
       logger.debug("OUTPUT DataFrame: " + dataframe.toString())
-
     } match {
       case Success(_) => return dataframe.toString()
       case Failure(ex) => throw new Exception(s"Exception while parsing following sql \n $sql " +
         s" \n Cause of exception is \n ${ex.getCause}")
     }
-
-
-
-
-
-
-
-
   }
 }
 object DataFrame extends DataFrame

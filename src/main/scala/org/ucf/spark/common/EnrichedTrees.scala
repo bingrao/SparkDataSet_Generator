@@ -25,7 +25,7 @@ trait EnrichedTrees extends Common {
   var selectList = new ListBuffer[SelectItem]() // All select list
   var unSupport:Boolean = false
   var currentData:String = regEmpty
-
+  val exceptionList = new ListBuffer[Throwable]
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
   /*********************************************************************************************************/
@@ -90,10 +90,7 @@ trait EnrichedTrees extends Common {
         if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList, df, aggCols)
         if (body.getDistinct != null) genCodeDistinct(body.getDistinct, df)
         if (body.getLimit != null) genCodeLimit(body.getLimit, df)
-
-        logger.debug("[Table<Alias, Name>] " + tableList.mkString(","))
-        logger.debug("[Join] " + joinList.mkString(","))
-        logger.debug("[Select] " + selectList.mkString(","))
+        getDebugInfo()
       }
       regEmpty
     }
@@ -174,6 +171,7 @@ trait EnrichedTrees extends Common {
           binaryExpr match {
             case like:LikeExpression => {
               unSupport = true
+              exceptionList += new Throwable("Unsupport like operation in where statement")
               "Unsupport like operation in where statement"
             }
             case _ => {
@@ -213,6 +211,7 @@ trait EnrichedTrees extends Common {
       }
       if(subSelect){
         unSupport = true
+        exceptionList += new Throwable("Unsupport subselect statement in a exmpression")
         expString + "Unsupport subselect statement in a exmpression"
       } else
         expString
@@ -257,7 +256,6 @@ trait EnrichedTrees extends Common {
       regEmpty
     }
   }
-
 
   private def genCodeFrom(from:FromItem ,df:mutable.StringBuilder):mutable.StringBuilder  = {
     if (!unSupport){
@@ -398,10 +396,12 @@ trait EnrichedTrees extends Common {
       if (haveAgg && havaColumn) {
         this.unSupport = true
         df.append("Current Version does not support to sellect column and agg")
+        exceptionList += new Throwable(df.toString())
         return aggCols
       } else if ((!groupBy.isEmpty) && havaColumn){
         this.unSupport = true
         df.append("Current Version does not support groupBy operation without agg funcs in select")
+        exceptionList += new Throwable(df.toString())
         return aggCols
       }
 
@@ -436,8 +436,10 @@ trait EnrichedTrees extends Common {
   }
   private def genCodeHaving(havingExpr: Expression,df:mutable.StringBuilder, groupBy:String) = {
     if(groupBy.isEmpty){
-     unSupport = true
+      unSupport = true
       df.append("Need groupBy operation if you want to use having statement")
+      exceptionList += new Throwable(df.toString())
+      df
     } else {
       val havingString = havingExpr.getString()
       df.append(s".filter($havingString)")
@@ -466,11 +468,13 @@ trait EnrichedTrees extends Common {
         if(isFuncOrBinary){
           this.unSupport = true
           df.append("Current Version does not support to order by with a func or binary operation")
+          exceptionList += new Throwable(df.toString())
           return df
         }
       } else {
         this.unSupport = true
         df.append("Current Version does not support to order by from an agg selection without group by")
+        exceptionList += new Throwable(df.toString())
         return df
       }
     }
@@ -501,9 +505,10 @@ trait EnrichedTrees extends Common {
       tableList +=(table.getName -> table.getName)
   }
   private def resetEnvironment(): Unit ={
-    this.tableList = new mutable.HashMap[String, String]()
-    this.joinList = new ListBuffer[Join]()
-    this.selectList = new ListBuffer[SelectItem]()
+    this.tableList.clear()
+    this.joinList.clear()
+    this.selectList.clear()
+    this.exceptionList.clear()
   }
   private def getColumnName(expression: Expression):String = {
     val name = expression.getString()
@@ -532,7 +537,17 @@ trait EnrichedTrees extends Common {
       CCJSqlParserUtil.parse(sql)
     } match {
       case Success(_) => true
-      case Failure(ex) => false
+      case Failure(ex) => {
+        exceptionList.add(ex)
+        false
+      }
     }
+  }
+
+  def getDebugInfo(): Unit = {
+    logger.debug("[Table<Alias, Name>] " + tableList.mkString(","))
+    logger.debug("[Join] " + joinList.mkString(","))
+    logger.debug("[Select] " + selectList.mkString(","))
+    exceptionList.foreach(throwable => logger.debug(throwable.getCause))
   }
 }
