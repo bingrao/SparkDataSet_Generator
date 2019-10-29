@@ -15,9 +15,9 @@ import scala.io.Source
 
 object WikiSQLFileReader extends DataFrame{
   def genSparkDataFrame() = {
-    val files = Map("data/WikiSQL/data/dev_query.jsonl" -> "data/output/WikiSQL/dev_query.df.jsonl",
-      "data/WikiSQL/data/test_query.jsonl" ->"data/output/WikiSQL/test_query.df.jsonl",
-      "data/WikiSQL/data/train_query.jsonl" ->"data/output/WikiSQL/train_query.df.jsonl")
+    val files = Map("data/WikiSQL/data/dev_query.jsonl" -> "data/output/WikiSQL/dev.df.jsonl",
+      "data/WikiSQL/data/test_query.jsonl" ->"data/output/WikiSQL/test.df.jsonl",
+      "data/WikiSQL/data/train_query.jsonl" ->"data/output/WikiSQL/train.df.jsonl")
     files.foreach{ case (input, output) =>
       val inFile = new File(input)
       if(inFile.isFile){
