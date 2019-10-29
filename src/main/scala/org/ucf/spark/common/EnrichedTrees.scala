@@ -25,7 +25,7 @@ trait EnrichedTrees extends Common {
   var joinList = new ListBuffer[Join]() // All Join list
   var selectList = new ListBuffer[SelectItem]() // All select list
   var unSupport:Boolean = false
-  var currentData:String = regEmpty
+  var currentData:String = EmptyString
   val exceptionList = new ListBuffer[Throwable]
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
@@ -35,7 +35,9 @@ trait EnrichedTrees extends Common {
       if (!unSupport) {
         select.getSelectBody.genCode(df)
       }
-      regEmpty
+      getDebugInfo()
+      resetEnvironment() // Reset environment for next run
+      EmptyString
     }
   }
   implicit class genSelectBody(body:SelectBody) {
@@ -57,19 +59,17 @@ trait EnrichedTrees extends Common {
             throw new UnsupportedOperationException("Not supported yet.")
           }
           case _ => {
-            logger.info("Select Body Error: " + body)
+            logger.error("Select Body Error: " + body)
           }
         }
-        resetEnvironment() // Reset environment for next run
       }
-      regEmpty
+      EmptyString
     }
   }
   implicit class genPlainSelect(body:PlainSelect){
     def genCode(df:mutable.StringBuilder):String  = {
       if (!unSupport) {
         selectList.addAll(body.getSelectItems.toList)
-
         /**
           * MYSQL Execution order
           * https://qxf2.com/blog/mysql-query-execution/
@@ -85,15 +85,14 @@ trait EnrichedTrees extends Common {
         if (body.getFromItem != null) genCodeFrom(body.getFromItem, df)
         if (body.getJoins != null) genCodeJoins(body.getJoins.toList, df)
         if (body.getWhere != null) genCodeWhere(body.getWhere, df)
-        val groupItems = if (body.getGroupBy != null) genCodeGroupBy(body.getGroupBy, df) else regEmpty
-        val aggCols = if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList,df, groupItems) else regEmpty
+        val groupItems = if (body.getGroupBy != null) genCodeGroupBy(body.getGroupBy, df) else EmptyString
+        val aggCols = if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList,df, groupItems) else EmptyString
         if (body.getHaving != null) genCodeHaving(body.getHaving, df, groupItems)
         if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList, df, aggCols)
         if (body.getDistinct != null) genCodeDistinct(body.getDistinct, df)
         if (body.getLimit != null) genCodeLimit(body.getLimit, df)
-        getDebugInfo()
       }
-      regEmpty
+      EmptyString
     }
   }
   implicit class genJoin(join:Join) {
@@ -134,7 +133,7 @@ trait EnrichedTrees extends Common {
         }
         df.append("." + joinStatement)
       }
-      regEmpty
+      EmptyString
     }
   }
   implicit class genExpression(expr: Expression) {
@@ -142,130 +141,130 @@ trait EnrichedTrees extends Common {
       if (!unSupport) {
         df.append(this.getString(expr))
       }
-      regEmpty
+      EmptyString
     }
     def getString(expression: Expression = expr):String  = {
-      if (expression == null) return regEmpty
-      var subSelect:Boolean = false
-      var expString:String = expression match {
-
-        case operation @ (_:JsonExpression |
-                          _:NumericBind |
+      var subSelect: Boolean = false
+      if ((expression != null) && (!unSupport))  {
+        expression match {
+          case operation@(_: JsonExpression |
+                          _: NumericBind |
                           _: ArrayExpression |
-                          _:ExistsExpression |
-                          _:InExpression |
-                          _:KeepExpression |
-                          _:CaseExpression |
-                          _:OracleHint |
-                          _:AnalyticExpression |
-                          _:IsBooleanExpression |
-                          _:NotExpression |
-                          _:ValueListExpression |
-                          _:RowConstructor |
-//                          _:DoubleValue |
-                          _:CastExpression |
-                          _:UserVariable |
-                          _:CollateExpression |
-                          _:MySQLGroupConcat |
-                          _:AllComparisonExpression |
-                          _:ExtractExpression |
-                          _:FullTextSearch |
-                          _:OracleHierarchicalExpression |
-                          _:IsNullExpression |
-                          _:AnyComparisonExpression |
-                          _:SignedExpression |
-//                          _:NullValue |
-                          _:SubSelect |
-                          _:JdbcNamedParameter |
-                          _:IntervalExpression |
-                          _:WhenClause |
-//                          _:LongValue |
-                          _:JdbcParameter |
-//                          _:TimeValue |
-                          _:MultipleExpression |
-//                          _:TimestampValue |
-//                          _:TimeKeyExpression |
-//                          _:DateValue |
-                          _:NextValExpression |
-//                          _:StringValue |
-                          _:Parenthesis |
-                          _:DateTimeLiteralExpression) => {
-          unSupport = true
-          val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
-          exceptionList += new Throwable(message)
-          message
-        }
-        case column: Column => {
-          val colName = column.getColumnName
-          if(column.getTable != null) {
-            val tableName = tableList.getOrElse(column.getTable.getName, column.getTable.getName)
-            s"$tableName(" + "\"" + colName + "\"" + ")"
-          } else {
-            "\"" + colName + "\""
+                          _: ExistsExpression |
+                          _: InExpression |
+                          _: KeepExpression |
+                          _: CaseExpression |
+                          _: OracleHint |
+                          _: AnalyticExpression |
+                          _: IsBooleanExpression |
+                          _: NotExpression |
+                          _: ValueListExpression |
+                          _: RowConstructor |
+                          //                          _:DoubleValue |
+                          _: CastExpression |
+                          _: UserVariable |
+                          _: CollateExpression |
+                          _: MySQLGroupConcat |
+                          _: AllComparisonExpression |
+                          _: ExtractExpression |
+                          _: FullTextSearch |
+                          _: OracleHierarchicalExpression |
+                          _: IsNullExpression |
+                          _: AnyComparisonExpression |
+                          _: SignedExpression |
+                          //                          _:NullValue |
+                          _: SubSelect |
+                          _: JdbcNamedParameter |
+                          _: IntervalExpression |
+                          _: WhenClause |
+                          //                          _:LongValue |
+                          _: JdbcParameter |
+                          //                          _:TimeValue |
+                          _: MultipleExpression |
+                          //                          _:TimestampValue |
+                          //                          _:TimeKeyExpression |
+                          //                          _:DateValue |
+                          _: NextValExpression |
+                          //                          _:StringValue |
+                          _: Parenthesis |
+                          _: DateTimeLiteralExpression) => {
+            unSupport = true
+            val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
+            exceptionList += new Throwable(message)
+            message
           }
-        } // City or t1.name
-        case func:Function => {
-          if(func.getParameters != null ){
-            val params = func.getParameters.getExpressions.toList
-              .map(_.getString()).mkString(",")
-            func.getName + "(" + params + ")"
-          } else {
-            func.getName + "(\"*\")"
-          }
-        } // max(a)
-        case binaryExpr:BinaryExpression => {
-          binaryExpr match {
-            case operation @ (_:LikeExpression |
-                              _:SimilarToExpression |
-                              _:RegExpMySQLOperator |
-                              _:OldOracleJoinBinaryExpression |
-                              _:RegExpMatchOperator |
-                              _:IntegerDivision |
-                              _:BitwiseLeftShift |
-                              _:BitwiseRightShift |
-                              _:JsonOperator) => {
-              unSupport = true
-              val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
-              exceptionList += new Throwable(message)
-              message
+          case column: Column => {
+            val colName = column.getColumnName
+            if (column.getTable != null) {
+              val tableName = tableList.getOrElse(column.getTable.getName, column.getTable.getName)
+              s"$tableName(" + "\"" + colName + "\"" + ")"
+            } else {
+              "\"" + colName + "\""
             }
+          } // City or t1.name
+          case func: Function => {
+            if (func.getParameters != null) {
+              val params = func.getParameters.getExpressions.toList
+                .map(_.getString()).mkString(",")
+              func.getName + "(" + params + ")"
+            } else { // count(*)
+              func.getName + "(\"*\")"
+            }
+          } // max(a)
+          case binaryExpr: BinaryExpression => {
+            binaryExpr match {
+              case operation@(_: LikeExpression |
+                              _: SimilarToExpression |
+                              _: RegExpMySQLOperator |
+                              _: OldOracleJoinBinaryExpression |
+                              _: RegExpMatchOperator |
+                              _: IntegerDivision |
+                              _: BitwiseLeftShift |
+                              _: BitwiseRightShift |
+                              _: JsonOperator) => {
+                unSupport = true
+                val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
+                exceptionList += new Throwable(message)
+                message
+              }
 
-            case _ => {
-              /**
-                *  There is a bug here, Because a string is parsed as a column.
-                *  For example "asin" > "a", where "asin" is a column name, "a"
-                *  is just a string. Here the generate code will be col("asin") > col("a")
-                *  As we can see, it is wrong, the corret answer should be col("asin") > "a"
-                *  So metadata of the corresponding table is used to fixe out this issue.
-                */
-              val leftString = getColumnName(binaryExpr.getLeftExpression)
-              val rightString = binaryExpr.getRightExpression.getString()
-              val op = binaryExpr.getStringExpression.toUpperCase
-              op match {
-                case "=" => s"$leftString === $rightString"
-                case "!=" => s"$leftString =!= $rightString"
-                case "AND" => s"$leftString && $rightString"
-                case "OR" => s"$leftString || $rightString"
-                case _ => s"$leftString ${op} $rightString"
+              case _ => {
+                /**
+                  * There is a bug here, Because a string is parsed as a column.
+                  * For example "asin" > "a", where "asin" is a column name, "a"
+                  * is just a string. Here the generate code will be col("asin") > col("a")
+                  * As we can see, it is wrong, the corret answer should be col("asin") > "a"
+                  * So metadata of the corresponding table is used to fixe out this issue.
+                  */
+                val leftString = getColumnName(binaryExpr.getLeftExpression)
+                val rightString = binaryExpr.getRightExpression.getString()
+                val op = binaryExpr.getStringExpression.toUpperCase
+                op match {
+                  case "=" => s"$leftString === $rightString"
+                  case "!=" => s"$leftString =!= $rightString"
+                  case "AND" => s"$leftString && $rightString"
+                  case "OR" => s"$leftString || $rightString"
+                  case _ => s"$leftString ${op} $rightString"
+                }
               }
             }
-          }
-        } // t1.name = t2.name
-        case between:Between => {
-          if(between.getLeftExpression.isInstanceOf[SubSelect]) subSelect = true
-          if(between.getBetweenExpressionStart.isInstanceOf[SubSelect]) subSelect = true
-          if(between.getBetweenExpressionEnd.isInstanceOf[SubSelect]) subSelect = true
+          } // t1.name = t2.name
+          case between: Between => {
+            if (between.getLeftExpression.isInstanceOf[SubSelect]) subSelect = true
+            if (between.getBetweenExpressionStart.isInstanceOf[SubSelect]) subSelect = true
+            if (between.getBetweenExpressionEnd.isInstanceOf[SubSelect]) subSelect = true
 
-          val left = getColumnName(between.getLeftExpression)
-          val start = between.getBetweenExpressionStart.getString()
-          val end = between.getBetweenExpressionEnd.getString()
-          s"$left >= $start and $left =< $end"
+            val left = getColumnName(between.getLeftExpression)
+            val start = between.getBetweenExpressionStart.getString()
+            val end = between.getBetweenExpressionEnd.getString()
+            s"$left >= $start and $left =< $end"
+          }
+          case _ => {
+            logger.error(s"There is no expression type: ${expression.getClass.getTypeName}")
+            expression.toString
+          }
         }
-        case _ => {
-          expression.toString
-        }
-      }
-      expString
+      } else EmptyString
     }
     def isFuncOrBinary(expression: Expression = expr) = expression match {
       case _:Function => true
@@ -295,7 +294,7 @@ trait EnrichedTrees extends Common {
           }
         }
 
-        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList,df, regEmpty)
+        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList,df, EmptyString)
 
         if (body.getLimit != null) genCodeLimit(body.getLimit, df)
 
@@ -303,7 +302,7 @@ trait EnrichedTrees extends Common {
 
         if (body.getFetch != null) df.append(body.getFetch.toString)
       }
-      regEmpty
+      EmptyString
     }
   }
 
@@ -333,17 +332,21 @@ trait EnrichedTrees extends Common {
         }
         case lsubselect: LateralSubSelect => {
           //TODO
+          unSupport = true
           throw new UnsupportedOperationException("Not supported yet.")
         }
         case valuelist: ValuesList => {
+          unSupport = true
           //TODO
           throw new UnsupportedOperationException("Not supported yet.")
         }
         case tableFunc: TableFunction => {
+          unSupport = true
           //TODO
           throw new UnsupportedOperationException("Not supported yet.")
         }
         case _ => {
+          unSupport = true
           //TODO
           throw new UnsupportedOperationException("Not supported yet.")
         }
@@ -365,12 +368,11 @@ trait EnrichedTrees extends Common {
     if (!unSupport) {
       val whereString = where.getString()
       df.append(s".filter($whereString)")
-      //    df.append(".where(\"" + where + "\")")
     }
     df
   }
   private def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder)  = {
-    var groupExpressionsString = regEmpty
+    var groupExpressionsString = EmptyString
     if (!unSupport) {
       groupExpressionsString = groupByElement
         .getGroupByExpressions
@@ -383,17 +385,17 @@ trait EnrichedTrees extends Common {
     groupExpressionsString
   }
   private def genCodeSelect(selectItems: List[SelectItem],df:mutable.StringBuilder,groupBy:String):String  = {
-    var aggCols = regEmpty
+    var aggCols = EmptyString
     if (!unSupport) {
-      var haveAgg: Boolean = false
-      var havaColumn: Boolean = false
+      var selectAgg: Boolean = false
+      var selectColumn: Boolean = false
       var allAlias: Boolean = false
       val selectString = selectItems.map(
         select => { select match {
           case sExp: SelectExpressionItem => {
             sExp.getExpression match {
               case func:Function => {
-                haveAgg = true
+                selectAgg = true
                 //                val sExpStringArray = func.getString().split("[()]")
                 //                val sExprString = if (sExpStringArray.last.contains("*")){
                 //                  allAlias = true
@@ -415,7 +417,7 @@ trait EnrichedTrees extends Common {
                 }
               }
               case column:Column => {
-                havaColumn = true
+                selectColumn = true
                 if(sExp.getAlias != null) {
                   getColumnName(column) + ".as(\"" + sExp.getAlias.getName +"\")"
                 } else {
@@ -430,7 +432,7 @@ trait EnrichedTrees extends Common {
           case aTcolumns: AllTableColumns => {
             aTcolumns.toString
           }
-          case aColumns: AllColumns => {
+          case aColumns: AllColumns => { // count(*)
             "col(\"" + aColumns.toString + "\")"
           }
           case _ => {
@@ -443,12 +445,12 @@ trait EnrichedTrees extends Common {
       *  1. select min(asin), price from product
       *  2. select asin, price from product group by brand
       * */
-      if (haveAgg && havaColumn) {
+      if (selectAgg && selectColumn) {
         this.unSupport = true
         df.append("Current Version does not support to sellect column and agg")
         exceptionList += new Throwable(df.toString())
         return aggCols
-      } else if ((!groupBy.isEmpty) && havaColumn){
+      } else if ((!groupBy.isEmpty) && selectColumn){
         this.unSupport = true
         df.append("Current Version does not support groupBy operation without agg funcs in select")
         exceptionList += new Throwable(df.toString())
@@ -460,7 +462,7 @@ trait EnrichedTrees extends Common {
         */
       //      if(allAlias) {
       //        val dfSize = df.size
-      //        var tableName = regEmpty
+      //        var tableName = EmptyString
       //        var tableIndex = Int.MinValue
       //        tableList.foreach{
       //          case (alias, name) => {
@@ -471,12 +473,11 @@ trait EnrichedTrees extends Common {
       //            }
       //          }
       //        }
-      //        if(tableName != regEmpty) {
+      //        if(tableName != EmptyString) {
       //          df.insert(tableIndex + tableName.length, ".alias(\"all\")")
       //        }
       //      }
-
-      if (!groupBy.isEmpty || haveAgg) {
+      if (!groupBy.isEmpty || selectAgg) {
         df.append(s".agg($selectString)")
         aggCols = selectString
       } else
@@ -506,9 +507,9 @@ trait EnrichedTrees extends Common {
           val expStringList = ele.getExpression.getString().split("[()]") // column name will be in the last pos
           val order = if (!ele.isAsc) "desc"
           else if (ele.isAscDescPresent) "asc"
-          else regEmpty
+          else EmptyString
 
-          if(order != regEmpty) { // User specify order way (asc or desc) explicitly
+          if(order != EmptyString) { // User specify order way (asc or desc) explicitly
             order + "(" + expStringList.last + ")"
           } else {
             getColumnName(ele.getExpression)
@@ -571,17 +572,17 @@ trait EnrichedTrees extends Common {
       name
   }
 
-  //        val query = (ele \ queryString).extract[String].toUpperCase
-  //        var reg:Boolean = true
-  //        if (query.split(" ").contains("START")) reg = false
-  //        if (query.split(" ").contains("T2.START")) reg = false
-  //        if (query.split(" ").contains("MATCH")) reg = false
-  //        if (query.split(" ").contains("CHARACTER")) reg = false
-  //        if (query.split(" ").contains("NOT")) reg = false
-  //        if (query.split(" ").contains("SHOW")) reg = false
-  //        //        if (query.split(" ").contains("HAVING")) reg = false
-  //        if (query.contains("ORDER BY COUNT(*)  >=  5")) reg = false
-  //        reg
+  /**
+    *  So JSQLParser (v3.0) has debugs when parse a sql which contains following keywords:
+    *   START
+    *   MATCH
+    *   CHARACTER
+    *   SHOW
+    *   NOT
+    *   ORDER BY COUNT(*)  >=  5
+    * @param sql
+    * @return
+    */
   def isSQLValidate(sql: String): Boolean = {
     Try {
       CCJSqlParserUtil.parse(sql)
