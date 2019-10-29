@@ -35,9 +35,9 @@ SELECT count(*) FROM head WHERE age  >  56
 head.where(col("age") > 56).agg(count("*"))
 ```
 
-Please refer to the more case study in File [case examples](case_example.log)
+Please refer to the more case study in File [case examples](src/main/resources/case_example.log)
 
 ### Notes
 This project is still in early development, if there is any problem, please free to let me know.
 
-Please refer to the [unSupport SQL](unsupportSQL.log) file to see the unsupport sql.
+Please refer to the [unSupport SQL](src/main/resources/unsupportSQL.log) file to see the unsupport sql.
