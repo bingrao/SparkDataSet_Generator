@@ -19,7 +19,6 @@ trait EnrichedTrees extends Common {
   /*********************************************************************************************************/
   /*******************************   Global Varibles to Record info ****************************************/
   /*********************************************************************************************************/
-  val regEmpty:String = ""  // recursive function return value for gencode func in implicit class
   var tableList:mutable.HashMap[String, String] = // A record (alias -> name)
     new mutable.HashMap[String, String]()
   var joinList = new ListBuffer[Join]() // All Join list
