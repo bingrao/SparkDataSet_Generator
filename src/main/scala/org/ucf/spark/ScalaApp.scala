@@ -41,9 +41,7 @@ object ScalaApp extends common.Common {
 //        }
 //      }
 //    }
-
-    logger.info("Start Converst SQL to Spark DataFrame ...")
-    implement.SpiderFileReader.parser()
-    logger.info("Conversation is over!!")
+    implement.SpiderFileReader.genSparkDataFrame()
+    implement.WikiSQLFileReader.genSparkDataFrame()
   }
 }

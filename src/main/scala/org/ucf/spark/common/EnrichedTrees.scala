@@ -7,9 +7,12 @@ import net.sf.jsqlparser.schema._
 import net.sf.jsqlparser.statement.select.Join
 import net.sf.jsqlparser.expression._
 import net.sf.jsqlparser.expression.operators.relational._
+import net.sf.jsqlparser.parser.CCJSqlParserUtil
+
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConversions._
+import scala.util.{Failure, Success, Try}
 
 trait EnrichedTrees extends Common {
 
@@ -512,5 +515,25 @@ trait EnrichedTrees extends Common {
         "col(" + name + ")"
     else
       name
+  }
+
+  //        val query = (ele \ queryString).extract[String].toUpperCase
+  //        var reg:Boolean = true
+  //        if (query.split(" ").contains("START")) reg = false
+  //        if (query.split(" ").contains("T2.START")) reg = false
+  //        if (query.split(" ").contains("MATCH")) reg = false
+  //        if (query.split(" ").contains("CHARACTER")) reg = false
+  //        if (query.split(" ").contains("NOT")) reg = false
+  //        if (query.split(" ").contains("SHOW")) reg = false
+  //        //        if (query.split(" ").contains("HAVING")) reg = false
+  //        if (query.contains("ORDER BY COUNT(*)  >=  5")) reg = false
+  //        reg
+  def isSQLValidate(sql: String): Boolean = {
+    Try {
+      CCJSqlParserUtil.parse(sql)
+    } match {
+      case Success(_) => true
+      case Failure(ex) => false
+    }
   }
 }

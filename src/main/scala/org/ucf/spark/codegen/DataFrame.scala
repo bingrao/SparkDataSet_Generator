@@ -4,29 +4,44 @@ package codegen
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.select._
 
-object DataFrame extends common.EnrichedTrees {
-  def codeGen(sql:String):String = {
+import scala.reflect.internal.Trees
+import scala.util.{Failure, Success, Try}
 
+class DataFrame extends common.EnrichedTrees {
+  def codeGen(sql:String):String = {
     logger.debug("******************************************\n\n")
     logger.debug("INPUT SQL: " + sql)
-
-    val statement = CCJSqlParserUtil.parse(sql)
     val dataframe = new StringBuilder()
-    if (statement.isInstanceOf[Select]) {
-      statement.asInstanceOf[Select].genCode(dataframe)
+    Try {
+      val statement = CCJSqlParserUtil.parse(sql)
+      if (statement.isInstanceOf[Select]) {
+        statement.asInstanceOf[Select].genCode(dataframe)
+      }
+      else
+        logger.info("Only support select statement: " + statement)
+
+      if(unSupport) {
+        this.unSupport = false
+        //      logger.info(s"${unSupportNotice} INPUT SQL: ${sql} ${unSupportNotice}")
+        //      logger.info(s"${unSupportNotice} OUTPUT DataFrame: ${dataframe.toString()} ${unSupportNotice}\n")
+        dataframe.append(unSupportNotice) // doest not remove this statement, will used in spider filter
+      }
+
+      logger.debug("OUTPUT DataFrame: " + dataframe.toString())
+
+    } match {
+      case Success(_) => return dataframe.toString()
+      case Failure(ex) => throw new Exception(s"Exception while parsing following sql \n $sql " +
+        s" \n Cause of exception is \n ${ex.getCause}")
     }
-    else
-      logger.info("Only support select statement: " + statement)
 
 
-    if(unSupport) {
-      this.unSupport = false
-      logger.info(s"${unSupportNotice} INPUT SQL: ${sql} ${unSupportNotice}")
-      logger.info(s"${unSupportNotice} OUTPUT DataFrame: ${dataframe.toString()} ${unSupportNotice}\n")
-      dataframe.append(unSupportNotice) // doest not remove this statement, will used in spider filter
-    }
 
-    logger.debug("OUTPUT DataFrame: " + dataframe.toString())
-    return dataframe.toString()
+
+
+
+
+
   }
 }
+object DataFrame extends DataFrame
