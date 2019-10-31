@@ -10,17 +10,17 @@ class Generator(context: Context = new Context()) extends common.EnrichedTrees {
     ctx.logger.debug("INPUT SQL: " + sql)
     Try {
       CCJSqlParserUtil.parse(sql).genCode(ctx)
-      if(unSupport) {
-        this.unSupport = false
+      if(!ctx.isSupport) {
+        ctx.enableSupport
         //      logger.info(s"${unSupportNotice} INPUT SQL: ${sql} ${unSupportNotice}")
         //      logger.info(s"${unSupportNotice} OUTPUT DataFrame: ${dataframe.toString()} ${unSupportNotice}\n")
-        ctx.df.append(unSupportNotice) // doest not remove this statement, will used in spider filter
+        ctx.append(unSupportNotice) // doest not remove this statement, will used in spider filter
       }
-      ctx.logger.debug("OUTPUT DataFrame: " + ctx.df.toString())
+      ctx.logger.debug("OUTPUT DataFrame: " + ctx.getSparkDataFrame)
     } match {
       case Success(_) => {
-        val reg = ctx.df.toString()
-        ctx.df.clear()
+        val reg = ctx.getSparkDataFrame
+        ctx.reset
         return reg
     }
       case Failure(ex) => throw new Exception(s"Exception while parsing following sql \n $sql " +

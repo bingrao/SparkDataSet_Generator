@@ -17,19 +17,11 @@ import database._
 import codegen.Context
 
 trait EnrichedTrees extends DFDatabaseBuilder{
-
-  /*********************************************************************************************************/
-  /*******************************   Global Varibles to Record info ****************************************/
-  /*********************************************************************************************************/
-  var unSupport:Boolean = false
-
-
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
   /*********************************************************************************************************/
   implicit class genStatement(statement: Statement) {
-    def genCode(ctx:Context):String = if (!unSupport) {
-      val df = ctx.df
+    def genCode(ctx:Context):String = if (ctx.isSupport) {
       statement match {
           case sts @ (_:net.sf.jsqlparser.statement.drop.Drop |
                       _:net.sf.jsqlparser.statement.truncate.Truncate |
@@ -75,8 +67,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
     } else EmptyString
   }
   implicit class genCreateTable(createtable:create.table.CreateTable) {
-    def genCode(ctx:Context):String = if (!unSupport) {
-      val df = ctx.df
+    def genCode(ctx:Context):String = if (ctx.isSupport) {
       val table = createtable.getTable
       val columnDef = createtable.getColumnDefinitions
       val index = createtable.getIndexes
@@ -86,12 +77,12 @@ trait EnrichedTrees extends DFDatabaseBuilder{
     } else EmptyString
   }
   implicit class genBlock(block: Block) {
-    def genCode(ctx:Context):String = if (!unSupport) {
+    def genCode(ctx:Context):String = if (ctx.isSupport) {
       EmptyString
     } else EmptyString
   }
   implicit class genSelect(select:Select){
-    def genCode(ctx:Context):String  = if (!unSupport) {
+    def genCode(ctx:Context):String  = if (ctx.isSupport) {
       select.getSelectBody.genCode(ctx)
     } else EmptyString
   }
@@ -99,7 +90,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
 
   implicit class genSelectBody(body:SelectBody) {
     def genCode(ctx:Context):String = {
-      if (!unSupport) {
+      if (ctx.isSupport) {
         body match {
           case pSelect: PlainSelect => {
             pSelect.genCode(ctx)
@@ -125,7 +116,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   }
   implicit class genPlainSelect(body:PlainSelect){
     def genCode(ctx:Context):String  = {
-      if (!unSupport) {
+      if (ctx.isSupport) {
         ctx.addSelect(body.getSelectItems.toList)
         /**
           * MYSQL Execution order
@@ -154,8 +145,8 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   }
   implicit class genJoin(join:Join) {
     def genCode(ctx:Context):String = {
-      if (!unSupport) {
-        val right = getTableName(join.getRightItem.asInstanceOf[Table])
+      if (ctx.isSupport) {
+        val right = ctx.getTableName(join.getRightItem.asInstanceOf[Table])
         val condition = join.getOnExpression.getString(ctx)
         val joinStatement = if (join.isSimple && join.isOuter) {
           s"join($right, $condition, outer)"
@@ -188,21 +179,21 @@ trait EnrichedTrees extends DFDatabaseBuilder{
             s"join($right, $condition, STRAIGHT_JOIN)"
           }
         }
-        ctx.df.append("." + joinStatement)
+        ctx.append("." + joinStatement)
       }
       EmptyString
     }
   }
   implicit class genExpression(expr: Expression) {
     def genCode(ctx:Context):String = {
-      if (!unSupport) {
-        ctx.df.append(this.getString(ctx))
+      if (ctx.isSupport) {
+        ctx.append(this.getString(ctx))
       }
       EmptyString
     }
     def getString(ctx:Context, expression: Expression = expr):String  = {
       var subSelect: Boolean = false
-      if ((expression != null) && (!unSupport))  {
+      if ((expression != null) && (ctx.isSupport))  {
         expression match {
           case operation@(_: JsonExpression |
                           _: NumericBind |
@@ -245,7 +236,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
                           //                          _:StringValue |
                           _: Parenthesis |
                           _: DateTimeLiteralExpression) => {
-            unSupport = true
+            ctx.disableSupport
             val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
             ctx.addException(new Throwable(message))
             message
@@ -279,7 +270,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
                               _: BitwiseLeftShift |
                               _: BitwiseRightShift |
                               _: JsonOperator) => {
-                unSupport = true
+                ctx.disableSupport
                 val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
                 ctx.addException(new Throwable(message))
                 message
@@ -330,7 +321,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   }
   implicit class genSetOperationList(body: SetOperationList){
     def genCode(ctx:Context):String = {
-      if (!unSupport) {
+      if (ctx.isSupport) {
         val selects = body.getSelects.toList
         val operations = body.getOperations.toList
         val brackets = body.getBrackets
@@ -339,12 +330,12 @@ trait EnrichedTrees extends DFDatabaseBuilder{
           if (i != 0) {
             val op = operations.get(i - 1).toString.toLowerCase
             if (op.equals("minus")) throw new UnsupportedOperationException("Unsupport Operation")
-            ctx.df.append(" ").append(op).append(" ")
+            ctx.append(" ").append(op).append(" ")
           }
           if (brackets == null || brackets.get(i)) {
-            ctx.df.append("(")
+            ctx.append("(")
             selects.get(i).genCode(ctx)
-            ctx.df.append(")")
+            ctx.append(")")
           } else {
             selects.get(i).genCode(ctx)
           }
@@ -354,33 +345,32 @@ trait EnrichedTrees extends DFDatabaseBuilder{
 
         if (body.getLimit != null) genCodeLimit(body.getLimit, ctx)
 
-        if (body.getOffset != null) ctx.df.append(body.getOffset.toString)
+        if (body.getOffset != null) ctx.append(body.getOffset.toString)
 
-        if (body.getFetch != null) ctx.df.append(body.getFetch.toString)
+        if (body.getFetch != null) ctx.append(body.getFetch.toString)
       }
       EmptyString
     }
   }
 
-  private def genCodeFrom(from:FromItem ,ctx:Context):mutable.StringBuilder  = {
-    if (!unSupport){
+  private def genCodeFrom(from:FromItem ,ctx:Context)  = {
+    if (ctx.isSupport){
       from match {
         case subjoin: SubJoin => {
           val leftTable = subjoin.getLeft.asInstanceOf[Table]
           ctx.addTable(leftTable)
-          ctx.df.append(getTableName(leftTable))
+          ctx.append(ctx.getTableName(leftTable))
           val joins = subjoin.getJoinList.toList
           joins.foreach(join => {
             ctx.addTable(join.getRightItem.asInstanceOf[Table])
             ctx.addJoin(join)
             join.genCode(ctx)
           })
-          ctx.df
         }
         case table: Table => {
           ctx.addTable(table)
-          val tableName = getTableName(table)
-          ctx.df.append(tableName)
+          val tableName = ctx.getTableName(table)
+          ctx.append(tableName)
         }
         case parFrom: ParenthesisFromItem => {}
         case subselect: SubSelect => {
@@ -388,61 +378,63 @@ trait EnrichedTrees extends DFDatabaseBuilder{
         }
         case lsubselect: LateralSubSelect => {
           //TODO
-          unSupport = true
+          ctx.disableSupport
           throw new UnsupportedOperationException("Not supported yet.")
         }
         case valuelist: ValuesList => {
-          unSupport = true
+          ctx.disableSupport
           //TODO
           throw new UnsupportedOperationException("Not supported yet.")
         }
         case tableFunc: TableFunction => {
-          unSupport = true
+          ctx.disableSupport
           //TODO
           throw new UnsupportedOperationException("Not supported yet.")
         }
         case _ => {
-          unSupport = true
+          ctx.disableSupport
           //TODO
           throw new UnsupportedOperationException("Not supported yet.")
         }
       }
     }
-    ctx.df
   }
+
+  /*********************************************************************************************************/
+  /****************************************   Helper Functions *********************************************/
+  /*********************************************************************************************************/
+
   private def genCodeJoins(joins: List[Join] ,ctx:Context) = {
-    if (!unSupport) {
+    if (ctx.isSupport) {
       joins.foreach(join => {
         ctx.addTable(join.getRightItem.asInstanceOf[Table])
         ctx.addJoin(join)
         join.genCode(ctx)
       })
     }
-    ctx.df
   }
   private def genCodeWhere(where:Expression,ctx:Context)  = {
-    if (!unSupport) {
+    if (ctx.isSupport) {
       val whereString = where.getString(ctx)
-      ctx.df.append(s".filter($whereString)")
+      ctx.append(s".filter($whereString)")
     }
-    ctx.df
   }
   private def genCodeGroupBy(groupByElement: GroupByElement,ctx:Context)  = {
     var groupExpressionsString = EmptyString
-    if (!unSupport) {
+    if (ctx.isSupport) {
       groupExpressionsString = groupByElement
         .getGroupByExpressions
         .map( expression => {
           getColumnName(expression,ctx)
         })
         .mkString(",")
-      ctx.df.append(s".groupBy($groupExpressionsString)")
+      ctx.append(s".groupBy($groupExpressionsString)")
     }
     groupExpressionsString
   }
   private def genCodeSelect(selectItems: List[SelectItem],ctx:Context,groupBy:String):String  = {
     var aggCols = EmptyString
-    if (!unSupport) {
+    if (ctx.isSupport) {
       var selectAgg: Boolean = false
       var selectColumn: Boolean = false
       var allAlias: Boolean = false
@@ -502,14 +494,14 @@ trait EnrichedTrees extends DFDatabaseBuilder{
       *  2. select asin, price from product group by brand
       * */
       if (selectAgg && selectColumn) {
-        this.unSupport = true
-        ctx.df.append("Current Version does not support to sellect column and agg")
-        ctx.addException(new Throwable(ctx.df.toString()))
+        ctx.disableSupport
+        ctx.append("Current Version does not support to sellect column and agg")
+        ctx.addException(new Throwable(ctx.getSparkDataFrame))
         return aggCols
       } else if ((!groupBy.isEmpty) && selectColumn){
-        this.unSupport = true
-        ctx.df.append("Current Version does not support groupBy operation without agg funcs in select")
-        ctx.addException(new Throwable(ctx.df.toString()))
+        ctx.disableSupport
+        ctx.append("Current Version does not support groupBy operation without agg funcs in select")
+        ctx.addException(new Throwable(ctx.getSparkDataFrame))
         return aggCols
       }
 
@@ -534,26 +526,25 @@ trait EnrichedTrees extends DFDatabaseBuilder{
       //        }
       //      }
       if (!groupBy.isEmpty || selectAgg) {
-        ctx.df.append(s".agg($selectString)")
+        ctx.append(s".agg($selectString)")
         aggCols = selectString
       } else
-        ctx.df.append(s".select($selectString)")
+        ctx.append(s".select($selectString)")
     }
     return aggCols
   }
   private def genCodeHaving(havingExpr: Expression,ctx:Context, groupBy:String) = {
     if(groupBy.isEmpty){
-      unSupport = true
-      ctx.df.append("Need groupBy operation if you want to use having statement")
-      ctx.addException(new Throwable(ctx.df.toString()))
-      ctx.df
+      ctx.disableSupport
+      ctx.append("Need groupBy operation if you want to use having statement")
+      ctx.addException(new Throwable(ctx.getSparkDataFrame))
     } else {
       val havingString = havingExpr.getString(ctx)
-      ctx.df.append(s".filter($havingString)")
+      ctx.append(s".filter($havingString)")
     }
   }
-  private def genCodeOrderBy(orderByElement: List[OrderByElement] ,ctx:Context, aggCols: String):mutable.StringBuilder  = {
-    if (!unSupport) {
+  private def genCodeOrderBy(orderByElement: List[OrderByElement] ,ctx:Context, aggCols: String)  = {
+    if (ctx.isSupport) {
       var isFuncOrBinary:Boolean = false
       if (aggCols.isEmpty) {
         val eleString = orderByElement.map(ele => {
@@ -571,45 +562,29 @@ trait EnrichedTrees extends DFDatabaseBuilder{
             getColumnName(ele.getExpression, ctx)
           }
         }).mkString(",")
-        ctx.df.append(s".orderBy($eleString)")
+        ctx.append(s".orderBy($eleString)")
         if(isFuncOrBinary){
-          this.unSupport = true
-          ctx.df.append("Current Version does not support to order by with a func or binary operation")
-          ctx.addException(new Throwable(ctx.df.toString()))
-          return ctx.df
+          ctx.disableSupport
+          ctx.append("Current Version does not support to order by with a func or binary operation")
+          ctx.addException(new Throwable(ctx.getSparkDataFrame))
         }
       } else {
-        this.unSupport = true
-        ctx.df.append("Current Version does not support to order by from an agg selection without group by")
-        ctx.addException(new Throwable(ctx.df.toString()))
-        return ctx.df
+        ctx.disableSupport
+        ctx.append("Current Version does not support to order by from an agg selection without group by")
+        ctx.addException(new Throwable(ctx.getSparkDataFrame))
       }
     }
-    ctx.df
   }
   private def genCodeDistinct(distinct: Distinct ,ctx:Context)  = {
-    if (!unSupport) {
-      ctx.df.append(s".distinct")
+    if (ctx.isSupport) {
+      ctx.append(s".distinct")
     }
-    ctx.df
   }
   private def genCodeLimit(limit: Limit ,ctx:Context)  = {
-    if (!unSupport) {
+    if (ctx.isSupport) {
       val nums = limit.getRowCount.getString(ctx)
-      ctx.df.append(s".limit($nums)")
+      ctx.append(s".limit($nums)")
     }
-    ctx.df
-  }
-
-  /*********************************************************************************************************/
-  /****************************************   Helper Functions *********************************************/
-  /*********************************************************************************************************/
-  private def getTableName(table: Table) = table.getName
-
-  private def resetEnvironment(): Unit ={
-//    this.joinList.clear()
-//    this.selectList.clear()
-//    this.exceptionList.clear()
   }
   private def getColumnName(expression: Expression, ctx:Context):String = {
     val name = expression.getString(ctx)
@@ -621,10 +596,4 @@ trait EnrichedTrees extends DFDatabaseBuilder{
     else
       name
   }
-//  def getDebugInfo(): Unit = {
-//    ctx.logger.debug("[Table<Alias, Name>] " + tableList.mkString(","))
-//    ctx.logger.debug("[Join] " + joinList.mkString(","))
-//    ctx.logger.debug("[Select] " + selectList.mkString(","))
-//    exceptionList.foreach(throwable => logger.debug(throwable.getCause))
-//  }
 }

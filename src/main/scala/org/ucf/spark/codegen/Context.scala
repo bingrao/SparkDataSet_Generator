@@ -5,19 +5,26 @@ import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.schema.Table
 import net.sf.jsqlparser.statement.select.{Join, SelectItem}
 import org.ucf.spark.utils.PropertiesLoader
-
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConversions._
+
+
 class Context(configPath:String = "src/main/resources/application.conf") extends common.Common {
   val parameters = new PropertiesLoader(configPath)
+
   val selectList = new ListBuffer[SelectItem]() // All select list
   def addSelect(selectItem: SelectItem) = selectList.+=(selectItem)
   def addSelect(selectItemList: List[SelectItem]) = selectList.addAll(selectItemList)
+
   private var joinList = new ListBuffer[Join]() // All Join list
   def addJoin(join: Join) = joinList.+=(join)
-  val df = new StringBuilder()
+
+  private val df = new StringBuilder()
+
+  def getSparkDataFrame = df.toString()
+  def append(content:Any) = df.append(content)
 
   // A record (alias -> name)
   var tableList:mutable.HashMap[String, String] = new mutable.HashMap[String, String]()
@@ -28,6 +35,7 @@ class Context(configPath:String = "src/main/resources/application.conf") extends
       tableList +=(table.getName -> table.getName)
   }
   def getTable(table:Table) = this.tableList.getOrElse(table.getName, table.getName)
+
   val exceptionList = new ListBuffer[Throwable]()
   def addException(throwable: Throwable) = exceptionList.+=(throwable)
 
@@ -54,6 +62,29 @@ class Context(configPath:String = "src/main/resources/application.conf") extends
     }
   }
 
+  private var support:Boolean = true
+  def isSupport = this.support
+  def disableSupport = this.support = false
+  def enableSupport = this.support = true
+
+  def getTableName(table: Table) = table.getName
+
+  def getDebugInfo(): Unit = {
+    logger.debug("[Table<Alias, Name>] " + tableList.mkString(","))
+    logger.debug("[Join] " + joinList.mkString(","))
+    logger.debug("[Select] " + selectList.mkString(","))
+    exceptionList.foreach(throwable => logger.debug(throwable.getCause))
+  }
+
+
+  def reset = {
+    this.tableList.clear()
+    this.joinList.clear()
+    this.df.clear()
+    this.selectList.clear()
+    this.exceptionList.clear()
+    this.enableSupport
+  }
 
 
 }

@@ -12,15 +12,19 @@ class DFTestBase extends common.EnrichedTrees with common.Common {
     val ctx = new Context()
     Try {
       CCJSqlParserUtil.parse(sql).genCode(ctx)
-      if(unSupport) {
-        this.unSupport = false
+      if(!ctx.isSupport) {
+        ctx.enableSupport
         //      logger.info(s"${unSupportNotice} INPUT SQL: ${sql} ${unSupportNotice}")
         //      logger.info(s"${unSupportNotice} OUTPUT DataFrame: ${dataframe.toString()} ${unSupportNotice}\n")
-        ctx.df.append(unSupportNotice) // doest not remove this statement, will used in spider filter
+        ctx.append(unSupportNotice) // doest not remove this statement, will used in spider filter
       }
-      logger.debug("OUTPUT DataFrame: " + ctx.df.toString())
+      logger.debug("OUTPUT DataFrame: " + ctx.getSparkDataFrame)
     } match {
-      case Success(_) => return ctx.df.toString()
+      case Success(_) => {
+        val reg = ctx.getSparkDataFrame
+        ctx.reset
+        return reg
+      }
       case Failure(ex) => throw new Exception(s"Exception while parsing following sql \n $sql " +
         s" \n Cause of exception is \n ${ex.getCause}")
     }
