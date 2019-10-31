@@ -8,12 +8,10 @@ import net.sf.jsqlparser.statement.select.Join
 import net.sf.jsqlparser.expression._
 import net.sf.jsqlparser.expression.operators.relational._
 import net.sf.jsqlparser.expression.operators.arithmetic._
-import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.util.cnfexpression._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConversions._
-import scala.util.{Failure, Success, Try}
 import net.sf.jsqlparser.statement._
 import database._
 import codegen.Context
@@ -23,13 +21,9 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   /*********************************************************************************************************/
   /*******************************   Global Varibles to Record info ****************************************/
   /*********************************************************************************************************/
-  var tableList:mutable.HashMap[String, String] = // A record (alias -> name)
-    new mutable.HashMap[String, String]()
-  var joinList = new ListBuffer[Join]() // All Join list
-  var selectList = new ListBuffer[SelectItem]() // All select list
   var unSupport:Boolean = false
-  var currentData:String = EmptyString
-  val exceptionList = new ListBuffer[Throwable]
+
+
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
   /*********************************************************************************************************/
@@ -132,7 +126,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   implicit class genPlainSelect(body:PlainSelect){
     def genCode(ctx:Context):String  = {
       if (!unSupport) {
-        selectList.addAll(body.getSelectItems.toList)
+        ctx.addSelect(body.getSelectItems.toList)
         /**
           * MYSQL Execution order
           * https://qxf2.com/blog/mysql-query-execution/
@@ -162,7 +156,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
     def genCode(ctx:Context):String = {
       if (!unSupport) {
         val right = getTableName(join.getRightItem.asInstanceOf[Table])
-        val condition = join.getOnExpression.getString()
+        val condition = join.getOnExpression.getString(ctx)
         val joinStatement = if (join.isSimple && join.isOuter) {
           s"join($right, $condition, outer)"
         } else if (join.isSimple) {
@@ -202,11 +196,11 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   implicit class genExpression(expr: Expression) {
     def genCode(ctx:Context):String = {
       if (!unSupport) {
-        ctx.df.append(this.getString(expr))
+        ctx.df.append(this.getString(ctx))
       }
       EmptyString
     }
-    def getString(expression: Expression = expr):String  = {
+    def getString(ctx:Context, expression: Expression = expr):String  = {
       var subSelect: Boolean = false
       if ((expression != null) && (!unSupport))  {
         expression match {
@@ -253,13 +247,13 @@ trait EnrichedTrees extends DFDatabaseBuilder{
                           _: DateTimeLiteralExpression) => {
             unSupport = true
             val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
-            exceptionList += new Throwable(message)
+            ctx.addException(new Throwable(message))
             message
           }
           case column: Column => {
             val colName = column.getColumnName
             if (column.getTable != null) {
-              val tableName = tableList.getOrElse(column.getTable.getName, column.getTable.getName)
+              val tableName = ctx.getTable(column.getTable)
               s"$tableName(" + "\"" + colName + "\"" + ")"
             } else {
               "\"" + colName + "\""
@@ -268,7 +262,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
           case func: Function => {
             if (func.getParameters != null) {
               val params = func.getParameters.getExpressions.toList
-                .map(_.getString()).mkString(",")
+                .map(_.getString(ctx)).mkString(",")
               func.getName + "(" + params + ")"
             } else { // count(*)
               func.getName + "(\"*\")"
@@ -287,7 +281,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
                               _: JsonOperator) => {
                 unSupport = true
                 val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
-                exceptionList += new Throwable(message)
+                ctx.addException(new Throwable(message))
                 message
               }
 
@@ -299,8 +293,8 @@ trait EnrichedTrees extends DFDatabaseBuilder{
                   * As we can see, it is wrong, the corret answer should be col("asin") > "a"
                   * So metadata of the corresponding table is used to fixe out this issue.
                   */
-                val leftString = getColumnName(binaryExpr.getLeftExpression)
-                val rightString = binaryExpr.getRightExpression.getString()
+                val leftString = getColumnName(binaryExpr.getLeftExpression, ctx)
+                val rightString = binaryExpr.getRightExpression.getString(ctx)
                 val op = binaryExpr.getStringExpression.toUpperCase
                 op match {
                   case "=" => s"$leftString === $rightString"
@@ -317,9 +311,9 @@ trait EnrichedTrees extends DFDatabaseBuilder{
             if (between.getBetweenExpressionStart.isInstanceOf[SubSelect]) subSelect = true
             if (between.getBetweenExpressionEnd.isInstanceOf[SubSelect]) subSelect = true
 
-            val left = getColumnName(between.getLeftExpression)
-            val start = between.getBetweenExpressionStart.getString()
-            val end = between.getBetweenExpressionEnd.getString()
+            val left = getColumnName(between.getLeftExpression,ctx)
+            val start = between.getBetweenExpressionStart.getString(ctx)
+            val end = between.getBetweenExpressionEnd.getString(ctx)
             s"$left >= $start and $left =< $end"
           }
           case _ => {
@@ -373,18 +367,18 @@ trait EnrichedTrees extends DFDatabaseBuilder{
       from match {
         case subjoin: SubJoin => {
           val leftTable = subjoin.getLeft.asInstanceOf[Table]
-          addTable(leftTable)
+          ctx.addTable(leftTable)
           ctx.df.append(getTableName(leftTable))
           val joins = subjoin.getJoinList.toList
           joins.foreach(join => {
-            addTable(join.getRightItem.asInstanceOf[Table])
-            joinList += join
+            ctx.addTable(join.getRightItem.asInstanceOf[Table])
+            ctx.addJoin(join)
             join.genCode(ctx)
           })
           ctx.df
         }
         case table: Table => {
-          addTable(table)
+          ctx.addTable(table)
           val tableName = getTableName(table)
           ctx.df.append(tableName)
         }
@@ -419,8 +413,8 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   private def genCodeJoins(joins: List[Join] ,ctx:Context) = {
     if (!unSupport) {
       joins.foreach(join => {
-        addTable(join.getRightItem.asInstanceOf[Table])
-        joinList += join
+        ctx.addTable(join.getRightItem.asInstanceOf[Table])
+        ctx.addJoin(join)
         join.genCode(ctx)
       })
     }
@@ -428,7 +422,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   }
   private def genCodeWhere(where:Expression,ctx:Context)  = {
     if (!unSupport) {
-      val whereString = where.getString()
+      val whereString = where.getString(ctx)
       ctx.df.append(s".filter($whereString)")
     }
     ctx.df
@@ -439,7 +433,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
       groupExpressionsString = groupByElement
         .getGroupByExpressions
         .map( expression => {
-          getColumnName(expression)
+          getColumnName(expression,ctx)
         })
         .mkString(",")
       ctx.df.append(s".groupBy($groupExpressionsString)")
@@ -471,7 +465,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
                 //                  else
                 //                    sExpStringArray.last
                 //                }
-                val sExprString = func.getString()
+                val sExprString = func.getString(ctx)
                 if(sExp.getAlias != null) {
                   sExprString + " as \"" + sExp.getAlias.getName +"\""
                 } else {
@@ -481,13 +475,13 @@ trait EnrichedTrees extends DFDatabaseBuilder{
               case column:Column => {
                 selectColumn = true
                 if(sExp.getAlias != null) {
-                  getColumnName(column) + ".as(\"" + sExp.getAlias.getName +"\")"
+                  getColumnName(column,ctx) + ".as(\"" + sExp.getAlias.getName +"\")"
                 } else {
-                  getColumnName(column)
+                  getColumnName(column, ctx)
                 }
               }
               case _ => {
-                getColumnName(sExp.getExpression)
+                getColumnName(sExp.getExpression, ctx)
               }
             }
           }
@@ -510,12 +504,12 @@ trait EnrichedTrees extends DFDatabaseBuilder{
       if (selectAgg && selectColumn) {
         this.unSupport = true
         ctx.df.append("Current Version does not support to sellect column and agg")
-        exceptionList += new Throwable(ctx.df.toString())
+        ctx.addException(new Throwable(ctx.df.toString()))
         return aggCols
       } else if ((!groupBy.isEmpty) && selectColumn){
         this.unSupport = true
         ctx.df.append("Current Version does not support groupBy operation without agg funcs in select")
-        exceptionList += new Throwable(ctx.df.toString())
+        ctx.addException(new Throwable(ctx.df.toString()))
         return aggCols
       }
 
@@ -551,10 +545,10 @@ trait EnrichedTrees extends DFDatabaseBuilder{
     if(groupBy.isEmpty){
       unSupport = true
       ctx.df.append("Need groupBy operation if you want to use having statement")
-      exceptionList += new Throwable(ctx.df.toString())
+      ctx.addException(new Throwable(ctx.df.toString()))
       ctx.df
     } else {
-      val havingString = havingExpr.getString()
+      val havingString = havingExpr.getString(ctx)
       ctx.df.append(s".filter($havingString)")
     }
   }
@@ -566,7 +560,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
           if(ele.getExpression.isFuncOrBinary()) {
             isFuncOrBinary = true
           }
-          val expStringList = ele.getExpression.getString().split("[()]") // column name will be in the last pos
+          val expStringList = ele.getExpression.getString(ctx).split("[()]") // column name will be in the last pos
           val order = if (!ele.isAsc) "desc"
           else if (ele.isAscDescPresent) "asc"
           else EmptyString
@@ -574,20 +568,20 @@ trait EnrichedTrees extends DFDatabaseBuilder{
           if(order != EmptyString) { // User specify order way (asc or desc) explicitly
             order + "(" + expStringList.last + ")"
           } else {
-            getColumnName(ele.getExpression)
+            getColumnName(ele.getExpression, ctx)
           }
         }).mkString(",")
         ctx.df.append(s".orderBy($eleString)")
         if(isFuncOrBinary){
           this.unSupport = true
           ctx.df.append("Current Version does not support to order by with a func or binary operation")
-          exceptionList += new Throwable(ctx.df.toString())
+          ctx.addException(new Throwable(ctx.df.toString()))
           return ctx.df
         }
       } else {
         this.unSupport = true
         ctx.df.append("Current Version does not support to order by from an agg selection without group by")
-        exceptionList += new Throwable(ctx.df.toString())
+        ctx.addException(new Throwable(ctx.df.toString()))
         return ctx.df
       }
     }
@@ -601,7 +595,7 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   }
   private def genCodeLimit(limit: Limit ,ctx:Context)  = {
     if (!unSupport) {
-      val nums = limit.getRowCount.getString()
+      val nums = limit.getRowCount.getString(ctx)
       ctx.df.append(s".limit($nums)")
     }
     ctx.df
@@ -611,20 +605,14 @@ trait EnrichedTrees extends DFDatabaseBuilder{
   /****************************************   Helper Functions *********************************************/
   /*********************************************************************************************************/
   private def getTableName(table: Table) = table.getName
-  private def addTable(table:Table):Unit = if (table != null){
-    if(table.getAlias != null) // (alias --> Name)
-      tableList +=(table.getAlias.getName -> table.getName)
-    else
-      tableList +=(table.getName -> table.getName)
-  }
+
   private def resetEnvironment(): Unit ={
-    this.tableList.clear()
-    this.joinList.clear()
-    this.selectList.clear()
-    this.exceptionList.clear()
+//    this.joinList.clear()
+//    this.selectList.clear()
+//    this.exceptionList.clear()
   }
-  private def getColumnName(expression: Expression):String = {
-    val name = expression.getString()
+  private def getColumnName(expression: Expression, ctx:Context):String = {
+    val name = expression.getString(ctx)
     if(expression.isInstanceOf[Column])
       if(name.split("[()]").length > 1)
         name
@@ -632,29 +620,6 @@ trait EnrichedTrees extends DFDatabaseBuilder{
         "col(" + name + ")"
     else
       name
-  }
-
-  /**
-    *  So JSQLParser (v3.0) has debugs when parse a sql which contains following keywords:
-    *   START
-    *   MATCH
-    *   CHARACTER
-    *   SHOW
-    *   NOT
-    *   ORDER BY COUNT(*)  >=  5
-    * @param sql
-    * @return
-    */
-  def isSQLValidate(sql: String): Boolean = {
-    Try {
-      CCJSqlParserUtil.parse(sql)
-    } match {
-      case Success(_) => true
-      case Failure(ex) => {
-        exceptionList.add(ex)
-        false
-      }
-    }
   }
 //  def getDebugInfo(): Unit = {
 //    ctx.logger.debug("[Table<Alias, Name>] " + tableList.mkString(","))

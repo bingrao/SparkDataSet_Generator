@@ -37,7 +37,7 @@ object WikiSQLFileReader{
     val fw = new FileWriter(outPath)
     source.getLines().toList.map( list => {
       parse(list).extract[JObject]
-    }).filter(ele => generator.isSQLValidate((ele \ queryString).extract[String]))
+    }).filter(ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
       .map( ele => {
         val query = (ele \ queryString).extract[String]
         ele merge JObject("SparkDataFrame" -> JString(generator.genCodeFromSQLString(query)))

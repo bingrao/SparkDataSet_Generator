@@ -33,7 +33,7 @@ object SpiderFileReader {
     implicit val formats = DefaultFormats
     val source = Source.fromFile(inPath)
     val jObject = parse(source.reader()).extract[List[JObject]]
-      .filter( ele => generator.isSQLValidate((ele \ queryString).extract[String]))
+      .filter( ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
       .map( ele => {
         val query = (ele \ "query").extract[String]
         ele merge JObject("SparkDataFrame" -> JString(generator.genCodeFromSQLString(query)))

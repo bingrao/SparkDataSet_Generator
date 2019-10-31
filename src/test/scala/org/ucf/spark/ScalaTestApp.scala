@@ -19,8 +19,8 @@ class ScalaTestAPP extends DFTestBase {
 
   @Test def testParseSQL_s1(): Unit = {
     val s1 = "SELECT City FROM Customers UNION SELECT City FROM Suppliers ORDER BY City LIMIT 10;"
-    logger.info(s"INPUT: ${s1}")
-    logger.info("OUTPUT: " + codeGen(s1))
+    logger.info(s"INPUT: ${s5}")
+    logger.info("OUTPUT: " + codeGen(s5))
   }
 
   @Test def testParseSQL_s2(): Unit = {
