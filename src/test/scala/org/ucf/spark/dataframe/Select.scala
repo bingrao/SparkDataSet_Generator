@@ -6,9 +6,8 @@ package dataframe
   */
 import org.junit.Test
 import org.junit.Assert._
-import org.ucf.spark.codegen.DataFrame
 
-class Select extends DataFrame{
+class Select extends DFTestBase{
   @Test def testSelectOneColumn(): Unit = {
     val sql = "SELECT City FROM Customers"
     val expected = "Customers.select(col(\"City\"))"

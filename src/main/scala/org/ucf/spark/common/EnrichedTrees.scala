@@ -14,8 +14,11 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
+import net.sf.jsqlparser.statement._
+import database._
+import codegen.Context
 
-trait EnrichedTrees extends Common {
+trait EnrichedTrees extends DFDatabaseBuilder{
 
   /*********************************************************************************************************/
   /*******************************   Global Varibles to Record info ****************************************/
@@ -30,25 +33,85 @@ trait EnrichedTrees extends Common {
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
   /*********************************************************************************************************/
-  implicit class genSelect(select:Select){
-    def genCode(df:mutable.StringBuilder):String  = {
-      if (!unSupport) {
-        select.getSelectBody.genCode(df)
-      }
-      getDebugInfo()
-      resetEnvironment() // Reset environment for next run
-      EmptyString
-    }
+  implicit class genStatement(statement: Statement) {
+    def genCode(ctx:Context):String = if (!unSupport) {
+      val df = ctx.df
+      statement match {
+          case sts @ (_:net.sf.jsqlparser.statement.drop.Drop |
+                      _:net.sf.jsqlparser.statement.truncate.Truncate |
+                      _:DeclareStatement |
+                      _:net.sf.jsqlparser.statement.alter.Alter |
+                      _:net.sf.jsqlparser.statement.SetStatement |
+                      _:net.sf.jsqlparser.statement.merge.Merge  |
+                      _:net.sf.jsqlparser.statement.update.Update |
+                      _:net.sf.jsqlparser.statement.upsert.Upsert |
+                      _:net.sf.jsqlparser.statement.Commit |
+                      _:net.sf.jsqlparser.statement.ShowStatement |
+                      _:net.sf.jsqlparser.statement.ShowColumnsStatement |
+                      _:net.sf.jsqlparser.statement.values.ValuesStatement |
+                      _:net.sf.jsqlparser.statement.create.index.CreateIndex |
+//                      _:create.table.CreateTable |
+                      _:net.sf.jsqlparser.statement.create.view.AlterView |
+                      _:net.sf.jsqlparser.statement.create.view.CreateView |
+                      _:net.sf.jsqlparser.statement.comment.Comment |
+//                      _: Block |
+                      _:net.sf.jsqlparser.statement.execute.Execute |
+//                      _:select.Select |
+                      _:net.sf.jsqlparser.statement.ExplainStatement |
+                      _:net.sf.jsqlparser.statement.replace.Replace |
+                      _:net.sf.jsqlparser.statement.DeclareStatement |
+                      _:net.sf.jsqlparser.statement.insert.Insert |
+                      _:net.sf.jsqlparser.statement.delete.Delete |
+                      _:net.sf.jsqlparser.statement.UseStatement) =>{
+            EmptyString
+          }
+          case block: Block => {
+            block.genCode(ctx)
+          }
+          case cratetable: create.table.CreateTable =>{
+            cratetable.genCode(ctx)
+          }
+          case sel: select.Select =>{
+            sel.genCode(ctx)
+          }
+          case _ => {
+            EmptyString
+          }
+        }
+    } else EmptyString
   }
+  implicit class genCreateTable(createtable:create.table.CreateTable) {
+    def genCode(ctx:Context):String = if (!unSupport) {
+      val df = ctx.df
+      val table = createtable.getTable
+      val columnDef = createtable.getColumnDefinitions
+      val index = createtable.getIndexes
+
+
+      EmptyString
+    } else EmptyString
+  }
+  implicit class genBlock(block: Block) {
+    def genCode(ctx:Context):String = if (!unSupport) {
+      EmptyString
+    } else EmptyString
+  }
+  implicit class genSelect(select:Select){
+    def genCode(ctx:Context):String  = if (!unSupport) {
+      select.getSelectBody.genCode(ctx)
+    } else EmptyString
+  }
+
+
   implicit class genSelectBody(body:SelectBody) {
-    def genCode(df:mutable.StringBuilder):String = {
+    def genCode(ctx:Context):String = {
       if (!unSupport) {
         body match {
           case pSelect: PlainSelect => {
-            pSelect.genCode(df)
+            pSelect.genCode(ctx)
           }
           case sSelect: SetOperationList => {
-            sSelect.genCode(df)
+            sSelect.genCode(ctx)
           }
           case wItem: WithItem => {
             //TODO
@@ -59,7 +122,7 @@ trait EnrichedTrees extends Common {
             throw new UnsupportedOperationException("Not supported yet.")
           }
           case _ => {
-            logger.error("Select Body Error: " + body)
+            ctx.logger.error("Select Body Error: " + body)
           }
         }
       }
@@ -67,7 +130,7 @@ trait EnrichedTrees extends Common {
     }
   }
   implicit class genPlainSelect(body:PlainSelect){
-    def genCode(df:mutable.StringBuilder):String  = {
+    def genCode(ctx:Context):String  = {
       if (!unSupport) {
         selectList.addAll(body.getSelectItems.toList)
         /**
@@ -82,21 +145,21 @@ trait EnrichedTrees extends Common {
           * However, HAVING and GROUP BY clauses can come after SELECT depending on
           * the order it is specified in the query.
           */
-        if (body.getFromItem != null) genCodeFrom(body.getFromItem, df)
-        if (body.getJoins != null) genCodeJoins(body.getJoins.toList, df)
-        if (body.getWhere != null) genCodeWhere(body.getWhere, df)
-        val groupItems = if (body.getGroupBy != null) genCodeGroupBy(body.getGroupBy, df) else EmptyString
-        val aggCols = if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList,df, groupItems) else EmptyString
-        if (body.getHaving != null) genCodeHaving(body.getHaving, df, groupItems)
-        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList, df, aggCols)
-        if (body.getDistinct != null) genCodeDistinct(body.getDistinct, df)
-        if (body.getLimit != null) genCodeLimit(body.getLimit, df)
+        if (body.getFromItem != null) genCodeFrom(body.getFromItem, ctx)
+        if (body.getJoins != null) genCodeJoins(body.getJoins.toList, ctx)
+        if (body.getWhere != null) genCodeWhere(body.getWhere, ctx)
+        val groupItems = if (body.getGroupBy != null) genCodeGroupBy(body.getGroupBy, ctx) else EmptyString
+        val aggCols = if (body.getSelectItems != null) genCodeSelect(body.getSelectItems.toList,ctx, groupItems) else EmptyString
+        if (body.getHaving != null) genCodeHaving(body.getHaving, ctx, groupItems)
+        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList, ctx, aggCols)
+        if (body.getDistinct != null) genCodeDistinct(body.getDistinct, ctx)
+        if (body.getLimit != null) genCodeLimit(body.getLimit, ctx)
       }
       EmptyString
     }
   }
   implicit class genJoin(join:Join) {
-    def genCode(df:mutable.StringBuilder):String = {
+    def genCode(ctx:Context):String = {
       if (!unSupport) {
         val right = getTableName(join.getRightItem.asInstanceOf[Table])
         val condition = join.getOnExpression.getString()
@@ -131,15 +194,15 @@ trait EnrichedTrees extends Common {
             s"join($right, $condition, STRAIGHT_JOIN)"
           }
         }
-        df.append("." + joinStatement)
+        ctx.df.append("." + joinStatement)
       }
       EmptyString
     }
   }
   implicit class genExpression(expr: Expression) {
-    def genCode(df:mutable.StringBuilder):String = {
+    def genCode(ctx:Context):String = {
       if (!unSupport) {
-        df.append(this.getString(expr))
+        ctx.df.append(this.getString(expr))
       }
       EmptyString
     }
@@ -260,7 +323,6 @@ trait EnrichedTrees extends Common {
             s"$left >= $start and $left =< $end"
           }
           case _ => {
-            logger.error(s"There is no expression type: ${expression.getClass.getTypeName}")
             expression.toString
           }
         }
@@ -273,7 +335,7 @@ trait EnrichedTrees extends Common {
     }
   }
   implicit class genSetOperationList(body: SetOperationList){
-    def genCode(df:mutable.StringBuilder):String = {
+    def genCode(ctx:Context):String = {
       if (!unSupport) {
         val selects = body.getSelects.toList
         val operations = body.getOperations.toList
@@ -283,52 +345,52 @@ trait EnrichedTrees extends Common {
           if (i != 0) {
             val op = operations.get(i - 1).toString.toLowerCase
             if (op.equals("minus")) throw new UnsupportedOperationException("Unsupport Operation")
-            df.append(" ").append(op).append(" ")
+            ctx.df.append(" ").append(op).append(" ")
           }
           if (brackets == null || brackets.get(i)) {
-            df.append("(")
-            selects.get(i).genCode(df)
-            df.append(")")
+            ctx.df.append("(")
+            selects.get(i).genCode(ctx)
+            ctx.df.append(")")
           } else {
-            selects.get(i).genCode(df)
+            selects.get(i).genCode(ctx)
           }
         }
 
-        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList,df, EmptyString)
+        if (body.getOrderByElements != null) genCodeOrderBy(body.getOrderByElements.toList,ctx, EmptyString)
 
-        if (body.getLimit != null) genCodeLimit(body.getLimit, df)
+        if (body.getLimit != null) genCodeLimit(body.getLimit, ctx)
 
-        if (body.getOffset != null) df.append(body.getOffset.toString)
+        if (body.getOffset != null) ctx.df.append(body.getOffset.toString)
 
-        if (body.getFetch != null) df.append(body.getFetch.toString)
+        if (body.getFetch != null) ctx.df.append(body.getFetch.toString)
       }
       EmptyString
     }
   }
 
-  private def genCodeFrom(from:FromItem ,df:mutable.StringBuilder):mutable.StringBuilder  = {
+  private def genCodeFrom(from:FromItem ,ctx:Context):mutable.StringBuilder  = {
     if (!unSupport){
       from match {
         case subjoin: SubJoin => {
           val leftTable = subjoin.getLeft.asInstanceOf[Table]
           addTable(leftTable)
-          df.append(getTableName(leftTable))
+          ctx.df.append(getTableName(leftTable))
           val joins = subjoin.getJoinList.toList
           joins.foreach(join => {
             addTable(join.getRightItem.asInstanceOf[Table])
             joinList += join
-            join.genCode(df)
+            join.genCode(ctx)
           })
-          df
+          ctx.df
         }
         case table: Table => {
           addTable(table)
           val tableName = getTableName(table)
-          df.append(tableName)
+          ctx.df.append(tableName)
         }
         case parFrom: ParenthesisFromItem => {}
         case subselect: SubSelect => {
-          subselect.getSelectBody.genCode(df)
+          subselect.getSelectBody.genCode(ctx)
         }
         case lsubselect: LateralSubSelect => {
           //TODO
@@ -352,26 +414,26 @@ trait EnrichedTrees extends Common {
         }
       }
     }
-    df
+    ctx.df
   }
-  private def genCodeJoins(joins: List[Join] ,df:mutable.StringBuilder) = {
+  private def genCodeJoins(joins: List[Join] ,ctx:Context) = {
     if (!unSupport) {
       joins.foreach(join => {
         addTable(join.getRightItem.asInstanceOf[Table])
         joinList += join
-        join.genCode(df)
+        join.genCode(ctx)
       })
     }
-    df
+    ctx.df
   }
-  private def genCodeWhere(where:Expression,df:mutable.StringBuilder)  = {
+  private def genCodeWhere(where:Expression,ctx:Context)  = {
     if (!unSupport) {
       val whereString = where.getString()
-      df.append(s".filter($whereString)")
+      ctx.df.append(s".filter($whereString)")
     }
-    df
+    ctx.df
   }
-  private def genCodeGroupBy(groupByElement: GroupByElement,df:mutable.StringBuilder)  = {
+  private def genCodeGroupBy(groupByElement: GroupByElement,ctx:Context)  = {
     var groupExpressionsString = EmptyString
     if (!unSupport) {
       groupExpressionsString = groupByElement
@@ -380,11 +442,11 @@ trait EnrichedTrees extends Common {
           getColumnName(expression)
         })
         .mkString(",")
-      df.append(s".groupBy($groupExpressionsString)")
+      ctx.df.append(s".groupBy($groupExpressionsString)")
     }
     groupExpressionsString
   }
-  private def genCodeSelect(selectItems: List[SelectItem],df:mutable.StringBuilder,groupBy:String):String  = {
+  private def genCodeSelect(selectItems: List[SelectItem],ctx:Context,groupBy:String):String  = {
     var aggCols = EmptyString
     if (!unSupport) {
       var selectAgg: Boolean = false
@@ -436,7 +498,7 @@ trait EnrichedTrees extends Common {
             "col(\"" + aColumns.toString + "\")"
           }
           case _ => {
-            logger.error("select item is wrong" + select)
+            ctx.logger.error("select item is wrong" + select)
             select.toString
           }
         }}).mkString(",")
@@ -447,13 +509,13 @@ trait EnrichedTrees extends Common {
       * */
       if (selectAgg && selectColumn) {
         this.unSupport = true
-        df.append("Current Version does not support to sellect column and agg")
-        exceptionList += new Throwable(df.toString())
+        ctx.df.append("Current Version does not support to sellect column and agg")
+        exceptionList += new Throwable(ctx.df.toString())
         return aggCols
       } else if ((!groupBy.isEmpty) && selectColumn){
         this.unSupport = true
-        df.append("Current Version does not support groupBy operation without agg funcs in select")
-        exceptionList += new Throwable(df.toString())
+        ctx.df.append("Current Version does not support groupBy operation without agg funcs in select")
+        exceptionList += new Throwable(ctx.df.toString())
         return aggCols
       }
 
@@ -478,25 +540,25 @@ trait EnrichedTrees extends Common {
       //        }
       //      }
       if (!groupBy.isEmpty || selectAgg) {
-        df.append(s".agg($selectString)")
+        ctx.df.append(s".agg($selectString)")
         aggCols = selectString
       } else
-        df.append(s".select($selectString)")
+        ctx.df.append(s".select($selectString)")
     }
     return aggCols
   }
-  private def genCodeHaving(havingExpr: Expression,df:mutable.StringBuilder, groupBy:String) = {
+  private def genCodeHaving(havingExpr: Expression,ctx:Context, groupBy:String) = {
     if(groupBy.isEmpty){
       unSupport = true
-      df.append("Need groupBy operation if you want to use having statement")
-      exceptionList += new Throwable(df.toString())
-      df
+      ctx.df.append("Need groupBy operation if you want to use having statement")
+      exceptionList += new Throwable(ctx.df.toString())
+      ctx.df
     } else {
       val havingString = havingExpr.getString()
-      df.append(s".filter($havingString)")
+      ctx.df.append(s".filter($havingString)")
     }
   }
-  private def genCodeOrderBy(orderByElement: List[OrderByElement] ,df:mutable.StringBuilder, aggCols: String):mutable.StringBuilder  = {
+  private def genCodeOrderBy(orderByElement: List[OrderByElement] ,ctx:Context, aggCols: String):mutable.StringBuilder  = {
     if (!unSupport) {
       var isFuncOrBinary:Boolean = false
       if (aggCols.isEmpty) {
@@ -515,34 +577,34 @@ trait EnrichedTrees extends Common {
             getColumnName(ele.getExpression)
           }
         }).mkString(",")
-        df.append(s".orderBy($eleString)")
+        ctx.df.append(s".orderBy($eleString)")
         if(isFuncOrBinary){
           this.unSupport = true
-          df.append("Current Version does not support to order by with a func or binary operation")
-          exceptionList += new Throwable(df.toString())
-          return df
+          ctx.df.append("Current Version does not support to order by with a func or binary operation")
+          exceptionList += new Throwable(ctx.df.toString())
+          return ctx.df
         }
       } else {
         this.unSupport = true
-        df.append("Current Version does not support to order by from an agg selection without group by")
-        exceptionList += new Throwable(df.toString())
-        return df
+        ctx.df.append("Current Version does not support to order by from an agg selection without group by")
+        exceptionList += new Throwable(ctx.df.toString())
+        return ctx.df
       }
     }
-    df
+    ctx.df
   }
-  private def genCodeDistinct(distinct: Distinct ,df:mutable.StringBuilder)  = {
+  private def genCodeDistinct(distinct: Distinct ,ctx:Context)  = {
     if (!unSupport) {
-      df.append(s".distinct")
+      ctx.df.append(s".distinct")
     }
-    df
+    ctx.df
   }
-  private def genCodeLimit(limit: Limit ,df:mutable.StringBuilder)  = {
+  private def genCodeLimit(limit: Limit ,ctx:Context)  = {
     if (!unSupport) {
       val nums = limit.getRowCount.getString()
-      df.append(s".limit($nums)")
+      ctx.df.append(s".limit($nums)")
     }
-    df
+    ctx.df
   }
 
   /*********************************************************************************************************/
@@ -594,11 +656,10 @@ trait EnrichedTrees extends Common {
       }
     }
   }
-
-  def getDebugInfo(): Unit = {
-    logger.debug("[Table<Alias, Name>] " + tableList.mkString(","))
-    logger.debug("[Join] " + joinList.mkString(","))
-    logger.debug("[Select] " + selectList.mkString(","))
-    exceptionList.foreach(throwable => logger.debug(throwable.getCause))
-  }
+//  def getDebugInfo(): Unit = {
+//    ctx.logger.debug("[Table<Alias, Name>] " + tableList.mkString(","))
+//    ctx.logger.debug("[Join] " + joinList.mkString(","))
+//    ctx.logger.debug("[Select] " + selectList.mkString(","))
+//    exceptionList.foreach(throwable => logger.debug(throwable.getCause))
+//  }
 }

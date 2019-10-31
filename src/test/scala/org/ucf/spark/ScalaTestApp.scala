@@ -5,7 +5,7 @@ package org.ucf.spark
 import org.junit.Test
 import org.junit.Assert._
 
-class ScalaTestAPP extends common.Common {
+class ScalaTestAPP extends DFTestBase {
 
   @Test def testAdd() {
     logger.info("Hello World From Scala")
@@ -20,13 +20,13 @@ class ScalaTestAPP extends common.Common {
   @Test def testParseSQL_s1(): Unit = {
     val s1 = "SELECT City FROM Customers UNION SELECT City FROM Suppliers ORDER BY City LIMIT 10;"
     logger.info(s"INPUT: ${s1}")
-    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s1))
+    logger.info("OUTPUT: " + codeGen(s1))
   }
 
   @Test def testParseSQL_s2(): Unit = {
     val s2 = "SELECT * FROM Suppliers ORDER BY City, County LIMIT 10;"
     logger.info(s"INPUT: ${s2}")
-    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s2))
+    logger.info("OUTPUT: " + codeGen(s2))
   }
   @Test def testParseSQL_s7(): Unit = { // cannot parse since >= in order by
     val s7 = "SELECT T2.name FROM Certificate AS T1 JOIN Aircraft AS T2 ON T2.aid  =  T1.aid WHERE T2.distance  >  5000 GROUP BY T1.aid ORDER BY count(*)  >=  5"  // problem at "ORDER BY count(*)  >=  5"
@@ -40,13 +40,13 @@ class ScalaTestAPP extends common.Common {
     val s15 = "SELECT count(DISTINCT temporary_acting) FROM management"
     val s16 = "INPUT SQL: SELECT head_id ,  name FROM head WHERE name LIKE '%Ha%'"
 //    logger.info(s"INPUT: ${s8}")
-    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s15))
+    logger.info("OUTPUT: " + codeGen(s15))
   }
 
   @Test def testParseSQL_s3(): Unit = {
     val s3 = "SELECT max(budget_in_billions) as Bing FROM department"
     logger.info(s"INPUT: ${s3}")
-    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(s3))
+    logger.info("OUTPUT: " + codeGen(s3))
   }
 
   @Test def testParseSQL_product(): Unit = {
@@ -58,6 +58,6 @@ class ScalaTestAPP extends common.Common {
     val s8 = "SELECT river_name FROM river WHERE traverse IN ( SELECT state_name FROM city WHERE population  =  ( SELECT MAX ( population ) FROM city ) );"
     val test = s8
     logger.info(s"INPUT: ${test}")
-    logger.info("OUTPUT: " + codegen.DataFrame.codeGen(test))
+    logger.info("OUTPUT: " + codeGen(test))
   }
 }
