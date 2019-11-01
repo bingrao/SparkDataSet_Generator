@@ -1,6 +1,9 @@
 package org.ucf.spark
 package common
 
+import java.util
+import java.util.List
+
 import net.sf.jsqlparser.statement.select._
 import net.sf.jsqlparser.statement.values._
 import net.sf.jsqlparser.schema._
@@ -9,17 +12,15 @@ import net.sf.jsqlparser.expression._
 import net.sf.jsqlparser.expression.operators.relational._
 import net.sf.jsqlparser.expression.operators.arithmetic._
 import net.sf.jsqlparser.util.cnfexpression._
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
-import scala.collection.JavaConversions._
 import net.sf.jsqlparser.statement._
-import database._
 import codegen.Context
+import scala.collection.JavaConversions._
 
-trait EnrichedTrees extends common.Logger{
+class EnrichedTrees extends common.Common {
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
   /*********************************************************************************************************/
+
   implicit class genStatement(statement: Statement) {
     def genCode(ctx:Context):String = if (ctx.isSupport) {
       statement match {
@@ -54,8 +55,8 @@ trait EnrichedTrees extends common.Logger{
           case block: Block => {
             block.genCode(ctx)
           }
-          case cratetable: create.table.CreateTable =>{
-            cratetable.genCode(ctx)
+          case createtable: create.table.CreateTable =>{
+            createtable.genCode(ctx)
           }
           case sel: select.Select =>{
             sel.genCode(ctx)
@@ -69,13 +70,16 @@ trait EnrichedTrees extends common.Logger{
   implicit class genCreateTable(createtable:create.table.CreateTable) {
     def genCode(ctx:Context):String = if (ctx.isSupport) {
       val table = createtable.getTable
-      val columnDef = createtable.getColumnDefinitions
-      val index = createtable.getIndexes
+      val curDB  = ctx.getCurrentDB
+      table.setDatabase(curDB.getJDB)
+      val tableWrapper = new TableWrapper(table)
+      tableWrapper.setColumnDefinitions(createtable.getColumnDefinitions.toList)
 
-
+      curDB.addTable(tableWrapper.asInstanceOf[ctx.TableWrapper])
       EmptyString
     } else EmptyString
   }
+
   implicit class genBlock(block: Block) {
     def genCode(ctx:Context):String = if (ctx.isSupport) {
       EmptyString
@@ -86,7 +90,6 @@ trait EnrichedTrees extends common.Logger{
       select.getSelectBody.genCode(ctx)
     } else EmptyString
   }
-
 
   implicit class genSelectBody(body:SelectBody) {
     def genCode(ctx:Context):String = {

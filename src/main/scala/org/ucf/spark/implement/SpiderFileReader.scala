@@ -49,4 +49,9 @@ object SpiderFileReader extends common.Logger {
       source.close()
     }
   }
+  def builderDatabase(path:String = "data/test") = {
+    generator.buildDatabases(path)
+    val dbs = generator.getContext.allDBToString
+    logger.info(dbs,false)
+  }
 }

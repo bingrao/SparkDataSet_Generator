@@ -1,17 +1,22 @@
 package org.ucf.spark
 package codegen
 
+import java.io.{File, FileFilter}
+
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
-import net.sf.jsqlparser.schema.Table
+import net.sf.jsqlparser.schema.{Database, Table}
 import net.sf.jsqlparser.statement.select.{Join, SelectItem}
 import org.ucf.spark.utils.PropertiesLoader
+
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConversions._
+import scala.io.Source
 
 class Context(configPath:String = "src/main/resources/application.conf")
-  extends database.DFDatabaseBuilder with common.Logger {
+  extends common.Common {
+
   val parameters = new PropertiesLoader(configPath)
 
   val selectList = new ListBuffer[SelectItem]() // All select list
@@ -75,7 +80,7 @@ class Context(configPath:String = "src/main/resources/application.conf")
     logger.debug("[Select] " + selectList.mkString(","))
     exceptionList.foreach(throwable => logger.debug(throwable.getCause))
   }
-  
+
   def reset = {
     this.tableList.clear()
     this.joinList.clear()
@@ -83,5 +88,24 @@ class Context(configPath:String = "src/main/resources/application.conf")
     this.selectList.clear()
     this.exceptionList.clear()
     this.enableSupport
+  }
+
+  private val databases = mutable.HashMap[String, DatabaseWrapper]()  //<database name --> DB>
+  def getOrElseUpdateDB(dbName:String) = databases.getOrElseUpdate(dbName, new DatabaseWrapper(dbName))
+
+  def getAllDB = this.databases
+  def allDBToString = {
+    val sb = new mutable.StringBuilder()
+    getAllDB.foreach{case (_, db) => {
+      db.printPretty(sb,0)
+    }}
+    sb.toString()
+  }
+
+  private var currentDB:DatabaseWrapper = _
+  def getCurrentDB = this.currentDB
+  def setCurretnDB(dbName:String) = {
+    this.currentDB = getOrElseUpdateDB(dbName)
+    this.currentDB
   }
 }

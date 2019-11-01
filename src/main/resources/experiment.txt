@@ -35,3 +35,8 @@ val p3 = product.select("asin","brand","price")
 
 val p2 = spark.sql("Select asin, max(price) from product")
 val p3 = product.groupBy().agg("asin",max("price"))
+
+
+val sql = "CREATE TABLE \"author\" (\"aid\" int, \"homepage\" text, \"name\" text, \"oid\" int, primary key(\"aid\"));"
+val statement = CCJSqlParserUtil.parse(sql)
+statement.isInstanceOf[create.table.CreateTable]

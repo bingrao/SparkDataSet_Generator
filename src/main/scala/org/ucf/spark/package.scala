@@ -2,6 +2,8 @@ package org.ucf
 
 import org.apache.log4j.Logger
 
+import scala.collection.mutable
+
 package object spark extends Enumeration{
   final val unSupportNotice = "[***UNSUPPORT***]"
   final val EmptyString:String = ""  // recursive function return value for gencode func in implicit class
@@ -25,5 +27,8 @@ package object spark extends Enumeration{
     def logError(message:Any,prefix:Boolean = true) =
       if (prefix) logger.debug(message) else println(message)
     def isLogDebugEnabled = logger.isDebugEnabled
+
+    //https://alvinalexander.com/scala/scala-functions-repeat-character-n-times-padding-blanks
+    def getIndent(nums:Int) = "\t" * nums
   }
 }
