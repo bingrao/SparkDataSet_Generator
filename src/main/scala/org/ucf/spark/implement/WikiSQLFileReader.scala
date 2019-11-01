@@ -40,7 +40,7 @@ object WikiSQLFileReader{
     }).filter(ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
       .map( ele => {
         val query = (ele \ queryString).extract[String]
-        ele merge JObject("SparkDataFrame" -> JString(generator.genCodeFromSQLString(query)))
+        ele merge JObject("SparkDataFrame" -> JString(generator.run(query)))
       }).filter( ele => !(ele \ "SparkDataFrame").extract[String].contains(unSupportNotice))
       .foreach( jobject => {
         fw.write(write(jobject) + "\n")

@@ -1,6 +1,5 @@
 package org.ucf.spark
 package database
-import net.sf.jsqlparser.statement._
 
 import scala.collection.mutable.ListBuffer
 
@@ -12,5 +11,4 @@ case class DFTable(tableName:String){
 
   def setAlias(rename: String) = this.alias = rename
   def getAlias() = this.alias
-
 }

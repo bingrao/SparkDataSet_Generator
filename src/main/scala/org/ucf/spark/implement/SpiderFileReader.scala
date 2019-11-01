@@ -36,7 +36,7 @@ object SpiderFileReader {
       .filter( ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
       .map( ele => {
         val query = (ele \ "query").extract[String]
-        ele merge JObject("SparkDataFrame" -> JString(generator.genCodeFromSQLString(query)))
+        ele merge JObject("SparkDataFrame" -> JString(generator.run(query)))
       }).filter( ele => !(ele \ "SparkDataFrame").extract[String].contains(unSupportNotice))
 
     val fw = new FileWriter(outPath)

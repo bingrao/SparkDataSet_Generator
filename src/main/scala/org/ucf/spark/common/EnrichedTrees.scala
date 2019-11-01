@@ -16,7 +16,7 @@ import net.sf.jsqlparser.statement._
 import database._
 import codegen.Context
 
-trait EnrichedTrees extends DFDatabaseBuilder{
+trait EnrichedTrees {
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
   /*********************************************************************************************************/
