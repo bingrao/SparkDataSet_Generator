@@ -5,8 +5,8 @@ import implement._
   */
 object ScalaApp {
   def main(args: Array[String]): Unit = {
-    SpiderFileReader.genSparkDataFrame()
-    SpiderFileReader.builderDatabase()
-    WikiSQLFileReader.genSparkDataFrame()
+//    SpiderFileReader.genSparkDataFrame()
+    SpiderFileReader.builderDatabaseFromSchema()
+//    WikiSQLFileReader.genSparkDataFrame()
   }
 }

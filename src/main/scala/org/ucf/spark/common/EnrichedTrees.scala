@@ -70,10 +70,15 @@ class EnrichedTrees extends common.Common {
   implicit class genCreateTable(createtable:create.table.CreateTable) {
     def genCode(ctx:Context):String = if (ctx.isSupport) {
       val table = createtable.getTable
+      table.setName(table.getName.toLowerCase)
       val curDB  = ctx.getCurrentDB
       table.setDatabase(curDB.getJDB)
       val tableWrapper = new TableWrapper(table)
-      tableWrapper.setColumnDefinitions(createtable.getColumnDefinitions.toList)
+      val colDefs = createtable.getColumnDefinitions.toList.map(col => {
+        col.setColumnName(col.getColumnName.toLowerCase)
+        col
+      })
+      tableWrapper.addColumnDefinitions(colDefs)
 
       curDB.getOrElseUpdate(tableWrapper.asInstanceOf[ctx.TableWrapper])
       EmptyString

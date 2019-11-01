@@ -19,17 +19,23 @@ trait Common extends Logger{
     expectedDf.toUpperCase.replaceAll("\\s", EmptyString) ==
       convertedDf.toUpperCase.replaceAll("\\s", EmptyString)
   }
-
   implicit class addAPIColumnDefinition(columnDefinition: ColumnDefinition) {
     def printPretty(sb:mutable.StringBuilder, numsIntent:Int) = {
       sb.append(this.getIndent(numsIntent))
-        .append(s"${columnDefinition.getColumnName}:${columnDefinition.getColDataType.toString},")
+        .append(s"${columnDefinition.getColumnName}:${columnDefinition.getColDataType.toString}, ")
     }
   }
   case class TableWrapper(table: Table) {
+    private var idx = 0
+    def getIndex = this.idx
+    def setIndex(index:Int) = this.idx = index
+    def this(tableName:String) = this(new Table(tableName))
+
     private val columnDefinitions = new ListBuffer[ColumnDefinition]
-    def setColumnDefinitions(list:List[ColumnDefinition]) =
+    def addColumnDefinitions(list:List[ColumnDefinition]) =
       this.columnDefinitions.addAll(list)
+    def addColumnDefinition(colDef:ColumnDefinition) =
+      this.columnDefinitions.add(colDef)
 
     def getJTable = this.table
     def getName = table.getName
@@ -41,11 +47,10 @@ trait Common extends Logger{
     }
 
 
-
     def printPretty(sb:mutable.StringBuilder, numsIntent:Int) = {
       sb.append("\n").append(this.getIndent(numsIntent)).append("Table: " + getName).append("{")
       columnDefinitions.foreach(_.printPretty(sb, 0))
-      sb.update(sb.size - 1, '}')
+      sb.update(sb.size - 2, '}')
     }
   }
   case class DatabaseWrapper(dbName: String) {
@@ -56,6 +61,8 @@ trait Common extends Logger{
     private val tableList = new mutable.HashMap[String, TableWrapper]()
     def getOrElseUpdate(table:TableWrapper) =
       tableList.getOrElseUpdate(table.getName, table)
+    def getOrElseUpdate(tableName:String) =
+      tableList.getOrElseUpdate(tableName, new TableWrapper(tableName))
 
     def isContainTable(tableName:String) = tableList.contains(tableName)
     def getTable(tableName:String) = tableList.getOrElse(tableName, null)
@@ -67,7 +74,5 @@ trait Common extends Logger{
       }}
     }
   }
-
-
 }
 
