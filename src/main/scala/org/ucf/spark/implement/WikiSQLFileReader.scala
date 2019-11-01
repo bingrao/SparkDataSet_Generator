@@ -14,7 +14,7 @@ import scala.io.Source
   * https://www.hackingnote.com/en/scala/json4s
   */
 
-object WikiSQLFileReader{
+object WikiSQLFileReader extends common.Logger {
   val files = Map("data/WikiSQL/data/dev_query.jsonl" -> "data/output/WikiSQL/dev.df.jsonl",
     "data/WikiSQL/data/test_query.jsonl" ->"data/output/WikiSQL/test.df.jsonl",
     "data/WikiSQL/data/train_query.jsonl" ->"data/output/WikiSQL/train.df.jsonl")
@@ -23,29 +23,33 @@ object WikiSQLFileReader{
     files.foreach{ case (input, output) =>
       val inFile = new File(input)
       if(inFile.isFile){
-        generator.getContext.logger.info(s"Start Converst SQL to Spark DataFrame from ${input} to ${output}")
-        parser(input, output)
-        generator.getContext.logger.info("Conversation is over!!\n\n")
+        logger.info(s"Start Converst SQL to Spark DataFrame from ${input} to ${output}")
+        parseJSONL(input, output)
+        logger.info("Conversation is over!!\n\n")
       } else{
-        generator.getContext.logger.info(s"The input does not exist: ${input} to ${output}")
+        logger.info(s"The input does not exist: ${input} to ${output}")
       }
     }
   }
-  def parser(inPath:String, outPath:String, queryString: String = "queryString") = {
+  def parseJSONL(inPath:String, outPath:String, queryString: String = "queryString") = {
     implicit val formats = DefaultFormats
     val source = Source.fromFile(inPath)
-    val fw = new FileWriter(outPath)
-    source.getLines().toList.map( list => {
-      parse(list).extract[JObject]
-    }).filter(ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
-      .map( ele => {
-        val query = (ele \ queryString).extract[String]
-        ele merge JObject("SparkDataFrame" -> JString(generator.run(query)))
-      }).filter( ele => !(ele \ "SparkDataFrame").extract[String].contains(unSupportNotice))
-      .foreach( jobject => {
-        fw.write(write(jobject) + "\n")
-      })
-    fw.close()
-    source.close()
+    val target = new FileWriter(outPath)
+    try {
+      val jObject = source.getLines().toList.map( list => {
+        parse(list).extract[JObject]
+      }).filter(ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
+        .map( ele => {
+          val query = (ele \ queryString).extract[String]
+          ele merge JObject(DFObject -> JString(generator.run(query)))
+        }).filter( ele => !(ele \ DFObject).extract[String].contains(unSupportNotice))
+        .map(write(_)).mkString("\n")
+      target.write(jObject)
+    } catch {
+      case e: Exception => logger.info("exception caught: " + e)
+    } finally {
+      target.close()
+      source.close()
+    }
   }
 }

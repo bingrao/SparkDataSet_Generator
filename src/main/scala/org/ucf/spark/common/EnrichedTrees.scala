@@ -16,7 +16,7 @@ import net.sf.jsqlparser.statement._
 import database._
 import codegen.Context
 
-trait EnrichedTrees {
+trait EnrichedTrees extends common.Logger{
   /*********************************************************************************************************/
   /*****************************   Implicit class for JSQLparser Node *************************************/
   /*********************************************************************************************************/
@@ -107,7 +107,7 @@ trait EnrichedTrees {
             throw new UnsupportedOperationException("Not supported yet.")
           }
           case _ => {
-            ctx.logger.error("Select Body Error: " + body)
+            logger.error("Select Body Error: " + body)
           }
         }
       }
@@ -484,7 +484,7 @@ trait EnrichedTrees {
             "col(\"" + aColumns.toString + "\")"
           }
           case _ => {
-            ctx.logger.error("select item is wrong" + select)
+            logger.error("select item is wrong" + select)
             select.toString
           }
         }}).mkString(",")

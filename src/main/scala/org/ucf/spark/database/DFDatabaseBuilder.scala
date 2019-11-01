@@ -6,7 +6,7 @@ import java.io.{File, FileFilter}
 
 import scala.io.Source
 
-class DFDatabaseBuilder {
+trait DFDatabaseBuilder {
   private val databases = mutable.HashMap[String, DFDatabase]()
 
   def getDB(db:String) = databases.getOrElseUpdate(db, new DFDatabase(db))

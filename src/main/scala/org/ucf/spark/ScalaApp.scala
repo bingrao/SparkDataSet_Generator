@@ -3,7 +3,7 @@ import implement._
 /**
   * @author 
   */
-object ScalaApp extends common.Common {
+object ScalaApp {
   def main(args: Array[String]): Unit = {
     SpiderFileReader.genSparkDataFrame()
     WikiSQLFileReader.genSparkDataFrame()

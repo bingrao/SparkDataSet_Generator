@@ -17,10 +17,20 @@ class Generator(context: Context = new Context()) extends common.EnrichedTrees {
   def getContext = this.context
 
   def preGenerator(sql:String, ctx: Context = context) = {
-    ctx.logger.debug("******************************************\n\n")
-    ctx.logger.debug("INPUT SQL: " + sql)
+    logger.debug("******************************************\n\n")
+    logger.debug("INPUT SQL: " + sql)
+    // check current SQL if it is a valid sql statement
+    if(!ctx.isSQLValidate(sql)){
+      logger.error(s"The input is not a valid SQL statement: $sql")
+      ctx.disableSupport
+    }
   }
   def postGenerator(sql:String, ctx: Context = context) = {
+    // Print out debug info
+    if(logger.isDebugEnabled)
+      ctx.getDebugInfo()
+
+    //After generator, the context need to be reset for next run
     ctx.reset
   }
 
@@ -34,7 +44,7 @@ class Generator(context: Context = new Context()) extends common.EnrichedTrees {
       ctx.append(unSupportNotice) // doest not remove this statement, will used in spider filter
     }
     val reg = ctx.getSparkDataFrame
-    ctx.logger.debug("OUTPUT DataFrame: " + reg)
+    logger.debug("OUTPUT DataFrame: " + reg)
     postGenerator(sql)
     reg
   }

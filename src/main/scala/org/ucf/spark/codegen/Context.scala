@@ -10,8 +10,8 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConversions._
 
-
-class Context(configPath:String = "src/main/resources/application.conf") extends common.Common {
+class Context(configPath:String = "src/main/resources/application.conf")
+  extends database.DFDatabaseBuilder with common.Logger {
   val parameters = new PropertiesLoader(configPath)
 
   val selectList = new ListBuffer[SelectItem]() // All select list
@@ -38,7 +38,7 @@ class Context(configPath:String = "src/main/resources/application.conf") extends
 
   val exceptionList = new ListBuffer[Throwable]()
   def addException(throwable: Throwable) = exceptionList.+=(throwable)
-
+  def addException(exp:String) = exceptionList.+= (new Throwable(exp))
   /**
     *  So JSQLParser (v3.0) has debugs when parse a sql which contains following keywords:
     *   START
@@ -56,7 +56,7 @@ class Context(configPath:String = "src/main/resources/application.conf") extends
     } match {
       case Success(_) => true
       case Failure(ex) => {
-        addException(ex)
+        addException(s"[SQL Statement $sql]\n" + ex.toString)
         false
       }
     }
@@ -75,8 +75,7 @@ class Context(configPath:String = "src/main/resources/application.conf") extends
     logger.debug("[Select] " + selectList.mkString(","))
     exceptionList.foreach(throwable => logger.debug(throwable.getCause))
   }
-
-
+  
   def reset = {
     this.tableList.clear()
     this.joinList.clear()
@@ -85,6 +84,4 @@ class Context(configPath:String = "src/main/resources/application.conf") extends
     this.exceptionList.clear()
     this.enableSupport
   }
-
-
 }
