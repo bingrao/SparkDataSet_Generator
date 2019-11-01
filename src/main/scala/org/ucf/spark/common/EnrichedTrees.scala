@@ -75,7 +75,7 @@ class EnrichedTrees extends common.Common {
       val tableWrapper = new TableWrapper(table)
       tableWrapper.setColumnDefinitions(createtable.getColumnDefinitions.toList)
 
-      curDB.addTable(tableWrapper.asInstanceOf[ctx.TableWrapper])
+      curDB.getOrElseUpdate(tableWrapper.asInstanceOf[ctx.TableWrapper])
       EmptyString
     } else EmptyString
   }

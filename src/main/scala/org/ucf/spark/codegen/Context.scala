@@ -92,7 +92,7 @@ class Context(configPath:String = "src/main/resources/application.conf")
 
   private val databases = mutable.HashMap[String, DatabaseWrapper]()  //<database name --> DB>
   def getOrElseUpdateDB(dbName:String) = databases.getOrElseUpdate(dbName, new DatabaseWrapper(dbName))
-
+  def getDatabase(dbName:String) = databases.get(dbName)
   def getAllDB = this.databases
   def allDBToString = {
     val sb = new mutable.StringBuilder()
@@ -102,10 +102,32 @@ class Context(configPath:String = "src/main/resources/application.conf")
     sb.toString()
   }
 
-  private var currentDB:DatabaseWrapper = _
+  private var currentDB :DatabaseWrapper = _
   def getCurrentDB = this.currentDB
   def setCurretnDB(dbName:String) = {
     this.currentDB = getOrElseUpdateDB(dbName)
     this.currentDB
+  }
+
+
+  def curDBName:String = EmptyString
+  def curTableName:String = EmptyString
+
+  def getTableFromDB(tableName:String = curTableName, dbName:String = curDBName) =
+    if (isTableExist(tableName, dbName))
+      getDatabase(dbName).get.getTable(tableName)
+    else null
+
+  def isTableExist(tableName:String = curTableName, dbName:String = curDBName) = {
+    val db = getDatabase(dbName).get
+    if(db != null){
+        db.isContainTable(tableName)
+    } else false
+  }
+  def isColumnExist(colName:String, tableName:String = curTableName, dbName:String = curDBName) = {
+    val table = getTableFromDB(tableName,dbName)
+    if(table != null) {
+      table.isColumnExist(colName)
+    } else false
   }
 }

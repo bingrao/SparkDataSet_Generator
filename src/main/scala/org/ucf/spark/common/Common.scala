@@ -23,33 +23,29 @@ trait Common extends Logger{
   implicit class addAPIColumnDefinition(columnDefinition: ColumnDefinition) {
     def printPretty(sb:mutable.StringBuilder, numsIntent:Int) = {
       sb.append(this.getIndent(numsIntent))
-        .append(s"${columnDefinition.getColumnName}:${columnDefinition.getColDataType.toString}")
+        .append(s"${columnDefinition.getColumnName}:${columnDefinition.getColDataType.toString},")
     }
   }
-
   case class TableWrapper(table: Table) {
-
-    private var jtable:Table = table
-    def setJTable(table: Table) = this.jtable = table
-    def getJTable = this.jtable
-    def getName = table.getName
-
-
     private val columnDefinitions = new ListBuffer[ColumnDefinition]
-
     def setColumnDefinitions(list:List[ColumnDefinition]) =
       this.columnDefinitions.addAll(list)
 
-    def getColumnDefinitions = this.columnDefinitions
+    def getJTable = this.table
+    def getName = table.getName
+
+
+    def isColumnExist(colName:String) = {
+      val columns = columnDefinitions.filter(_.getColumnName.equals(colName))
+      if(columns.size != 0) true else false
+    }
+
+
 
     def printPretty(sb:mutable.StringBuilder, numsIntent:Int) = {
       sb.append("\n").append(this.getIndent(numsIntent)).append("Table: " + getName).append("{")
-      columnDefinitions.foreach( coldef => {
-        coldef.printPretty(sb, 0)
-        if (columnDefinitions.last != coldef)
-          sb.append(",")
-      })
-      sb.append("}")
+      columnDefinitions.foreach(_.printPretty(sb, 0))
+      sb.update(sb.size - 1, '}')
     }
   }
   case class DatabaseWrapper(dbName: String) {
@@ -57,16 +53,16 @@ trait Common extends Logger{
     def getJDB = this.jdb
     def getDatabaseName = this.dbName
 
-    private val dbtableList = new mutable.HashMap[String, TableWrapper]()
-    def addTable(table:TableWrapper):Unit = if (table != null){
-      dbtableList += (table.getName -> table)
-    }
-    def getTableSize = dbtableList.size
+    private val tableList = new mutable.HashMap[String, TableWrapper]()
+    def getOrElseUpdate(table:TableWrapper) =
+      tableList.getOrElseUpdate(table.getName, table)
 
-    def isTableExists(tableName:String) = this.dbtableList.contains(tableName)
+    def isContainTable(tableName:String) = tableList.contains(tableName)
+    def getTable(tableName:String) = tableList.getOrElse(tableName, null)
+
     def printPretty(sb:mutable.StringBuilder, numsIntent:Int) = {
       sb.append("\n" + this.getIndent(numsIntent)).append("Database: " + dbName)
-      dbtableList.foreach{  case (tableName, table) => {
+      tableList.foreach{  case (tableName, table) => {
         table.printPretty(sb, numsIntent + 1)
       }}
     }

@@ -17,18 +17,8 @@ package object spark extends Enumeration{
 
   // add log functions to all Scala Objects
   implicit class AddLogger(any:AnyRef) {
-    private val logger = Logger.getLogger(DFObject)
-    def logInfo(message:Any,prefix:Boolean = true) =
-      if (prefix) logger.info(message) else println(message)
-    def logWarn(message:Any,prefix:Boolean = true) =
-      if (prefix) logger.warn(message) else println(message)
-    def logDebug(message:Any,prefix:Boolean = true) =
-      if (prefix) logger.debug(message) else println(message)
-    def logError(message:Any,prefix:Boolean = true) =
-      if (prefix) logger.debug(message) else println(message)
-    def isLogDebugEnabled = logger.isDebugEnabled
-
     //https://alvinalexander.com/scala/scala-functions-repeat-character-n-times-padding-blanks
     def getIndent(nums:Int) = "\t" * nums
+    def printPretty(sb:mutable.StringBuilder, numsIntent:Int) = sb.append("")
   }
 }
