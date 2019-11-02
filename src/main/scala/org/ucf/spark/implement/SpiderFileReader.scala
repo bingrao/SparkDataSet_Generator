@@ -35,13 +35,15 @@ object SpiderFileReader extends common.Logger {
     val source = Source.fromFile(inPath)
     val target = new FileWriter(outPath)
     try {
-      val jObject = parse(source.reader()).extract[List[JObject]]
+      val jsonObject = parse(source.reader()).extract[List[JObject]]
+      val tgtObject = jsonObject
         .filter(ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
         .map(ele => {
           val query = (ele \ "query").extract[String]
           ele merge JObject(DFObject -> JString(generator.run(query)))
         }).filter(ele => !(ele \ DFObject).extract[String].contains(unSupportNotice))
-      target.write(writePretty(jObject) + "\n")
+      logger.info(s"The valid object from ${jsonObject.size} to ${tgtObject.size} in ${inPath}")
+      target.write(writePretty(tgtObject) + "\n")
 
     } catch  {
       case e: Exception => logger.info("exception caught: " + e)

@@ -36,15 +36,17 @@ object WikiSQLFileReader extends common.Logger {
     val source = Source.fromFile(inPath)
     val target = new FileWriter(outPath)
     try {
-      val jObject = source.getLines().toList.map( list => {
+      val jsonObject = source.getLines().toList.map( list => {
         parse(list).extract[JObject]
-      }).filter(ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
+      })
+      val tgtObject = jsonObject
+        .filter(ele => generator.getContext.isSQLValidate((ele \ queryString).extract[String]))
         .map( ele => {
           val query = (ele \ queryString).extract[String]
           ele merge JObject(DFObject -> JString(generator.run(query)))
         }).filter( ele => !(ele \ DFObject).extract[String].contains(unSupportNotice))
-        .map(write(_)).mkString("\n")
-      target.write(jObject)
+      logger.info(s"The valid object from ${jsonObject.size} to ${tgtObject.size} in ${inPath}")
+      target.write(tgtObject.map(write(_)).mkString("\n"))
     } catch {
       case e: Exception => logger.info("exception caught: " + e)
     } finally {

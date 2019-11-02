@@ -50,6 +50,8 @@ class EnrichedTrees extends common.Common {
                       _:net.sf.jsqlparser.statement.insert.Insert |
                       _:net.sf.jsqlparser.statement.delete.Delete |
                       _:net.sf.jsqlparser.statement.UseStatement) =>{
+            ctx.disableSupport
+            ctx.addException(s"Not supported yet ${sts.getClass.getName}")
             EmptyString
           }
           case block: Block => {
@@ -62,6 +64,8 @@ class EnrichedTrees extends common.Common {
             sel.genCode(ctx)
           }
           case _ => {
+            ctx.disableSupport
+            ctx.addException(s"Not supported yet ${statement.getClass.getName}")
             EmptyString
           }
         }
@@ -87,6 +91,10 @@ class EnrichedTrees extends common.Common {
 
   implicit class genBlock(block: Block) {
     def genCode(ctx:Context):String = if (ctx.isSupport) {
+      block.getStatements.getStatements.toList.foreach(sts => {
+        sts.genCode(ctx)
+        ctx.append("\n")
+      })
       EmptyString
     } else EmptyString
   }
@@ -108,14 +116,18 @@ class EnrichedTrees extends common.Common {
           }
           case wItem: WithItem => {
             //TODO
-            throw new UnsupportedOperationException("Not supported yet.")
+            ctx.disableSupport
+            ctx.addException(s"Not supported yet ${wItem.getClass.getName}")
           }
           case vStatement: ValuesStatement => {
             //TODO
-            throw new UnsupportedOperationException("Not supported yet.")
+            ctx.disableSupport
+            ctx.addException(s"Not supported yet ${vStatement.getClass.getName}")
           }
           case _ => {
-            logger.error("Select Body Error: " + body)
+            //TODO
+            ctx.disableSupport
+            ctx.addException(s"Not supported yet ${body.getClass.getName}")
           }
         }
       }
@@ -245,7 +257,7 @@ class EnrichedTrees extends common.Common {
                           _: Parenthesis |
                           _: DateTimeLiteralExpression) => {
             ctx.disableSupport
-            val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
+            val message = s"Unsupport OP in Root condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
             ctx.addException(new Throwable(message))
             message
           }
@@ -272,15 +284,15 @@ class EnrichedTrees extends common.Common {
               case operation@(_: LikeExpression |
                               _: SimilarToExpression |
                               _: RegExpMySQLOperator |
-                              _: OldOracleJoinBinaryExpression |
+//                              _: OldOracleJoinBinaryExpression |
                               _: RegExpMatchOperator |
                               _: IntegerDivision |
                               _: BitwiseLeftShift |
                               _: BitwiseRightShift |
                               _: JsonOperator) => {
                 ctx.disableSupport
-                val message = s"Unsupport OP in condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
-                ctx.addException(new Throwable(message))
+                val message = s"Unsupport OP in Binary condition [${operation.toString}]:[${operation.getClass.getTypeName}]"
+                ctx.addException(message)
                 message
               }
 
@@ -315,9 +327,7 @@ class EnrichedTrees extends common.Common {
             val end = between.getBetweenExpressionEnd.getString(ctx)
             s"$left >= $start and $left =< $end"
           }
-          case _ => {
-            expression.toString
-          }
+          case _ => expression.toString
         }
       } else EmptyString
     }
@@ -337,8 +347,11 @@ class EnrichedTrees extends common.Common {
         for (i <- selects.indices) {
           if (i != 0) {
             val op = operations.get(i - 1).toString.toLowerCase
-            if (op.equals("minus")) throw new UnsupportedOperationException("Unsupport Operation")
-            ctx.append(" ").append(op).append(" ")
+            if (op.equals("minus")) {
+              ctx.disableSupport
+              ctx.addException(s"Unsupport minus Operation ${this.getClass.getName}")
+            }
+            ctx.append(s" ${op} ")
           }
           if (brackets == null || brackets.get(i)) {
             ctx.append("(")
@@ -380,32 +393,37 @@ class EnrichedTrees extends common.Common {
           val tableName = ctx.getTableName(table)
           ctx.append(tableName)
         }
-        case parFrom: ParenthesisFromItem => {}
+        case parFrom: ParenthesisFromItem => {
+          //TODO
+          ctx.disableSupport
+          ctx.addException(s"Not supported ParenthesisFromItem yet ${parFrom.getClass.getName}")
+        }
         case subselect: SubSelect => {
           subselect.getSelectBody.genCode(ctx)
         }
         case lsubselect: LateralSubSelect => {
           //TODO
           ctx.disableSupport
-          throw new UnsupportedOperationException("Not supported yet.")
+          ctx.addException(s"Not supported LateralSubSelect yet ${lsubselect.getClass.getName}")
         }
         case valuelist: ValuesList => {
-          ctx.disableSupport
           //TODO
-          throw new UnsupportedOperationException("Not supported yet.")
+          ctx.disableSupport
+          ctx.addException(s"Not supported ValuesList yet ${valuelist.getClass.getName}")
         }
         case tableFunc: TableFunction => {
-          ctx.disableSupport
           //TODO
-          throw new UnsupportedOperationException("Not supported yet.")
+          ctx.disableSupport
+          ctx.addException(s"Not supported supported yet ${tableFunc.getClass.getName}")
         }
         case _ => {
-          ctx.disableSupport
           //TODO
-          throw new UnsupportedOperationException("Not supported yet.")
+          ctx.disableSupport
+          ctx.addException(s"Not supported supported yet ${from.getClass.getName}")
         }
       }
     }
+    EmptyString
   }
 
   /*********************************************************************************************************/
@@ -420,24 +438,23 @@ class EnrichedTrees extends common.Common {
         join.genCode(ctx)
       })
     }
+    EmptyString
   }
   private def genCodeWhere(where:Expression,ctx:Context)  = {
     if (ctx.isSupport) {
       val whereString = where.getString(ctx)
       ctx.append(s".filter($whereString)")
     }
+    EmptyString
   }
   private def genCodeGroupBy(groupByElement: GroupByElement,ctx:Context)  = {
-    var groupExpressionsString = EmptyString
-    if (ctx.isSupport) {
-      groupExpressionsString = groupByElement
-        .getGroupByExpressions
-        .map( expression => {
-          getColumnName(expression,ctx)
-        })
-        .mkString(",")
+    var groupExpressionsString = if (ctx.isSupport)
+      groupByElement.getGroupByExpressions.map(
+        expression => getColumnName(expression,ctx)
+      ).mkString(",")
+     else EmptyString
+    if (!groupExpressionsString.isEmpty)
       ctx.append(s".groupBy($groupExpressionsString)")
-    }
     groupExpressionsString
   }
   private def genCodeSelect(selectItems: List[SelectItem],ctx:Context,groupBy:String):String  = {
@@ -492,7 +509,8 @@ class EnrichedTrees extends common.Common {
             "col(\"" + aColumns.toString + "\")"
           }
           case _ => {
-            logger.error("select item is wrong" + select)
+            ctx.disableSupport
+            ctx.addException(s"Unsupport type in other select ${select.getClass.getName}")
             select.toString
           }
         }}).mkString(",")
@@ -539,7 +557,7 @@ class EnrichedTrees extends common.Common {
       } else
         ctx.append(s".select($selectString)")
     }
-    return aggCols
+    aggCols
   }
   private def genCodeHaving(havingExpr: Expression,ctx:Context, groupBy:String) = {
     if(groupBy.isEmpty){
@@ -550,6 +568,7 @@ class EnrichedTrees extends common.Common {
       val havingString = havingExpr.getString(ctx)
       ctx.append(s".filter($havingString)")
     }
+    EmptyString
   }
   private def genCodeOrderBy(orderByElement: List[OrderByElement] ,ctx:Context, aggCols: String)  = {
     if (ctx.isSupport) {
@@ -582,17 +601,20 @@ class EnrichedTrees extends common.Common {
         ctx.addException(new Throwable(ctx.getSparkDataFrame))
       }
     }
+    EmptyString
   }
   private def genCodeDistinct(distinct: Distinct ,ctx:Context)  = {
     if (ctx.isSupport) {
       ctx.append(s".distinct")
     }
+    EmptyString
   }
   private def genCodeLimit(limit: Limit ,ctx:Context)  = {
     if (ctx.isSupport) {
       val nums = limit.getRowCount.getString(ctx)
       ctx.append(s".limit($nums)")
     }
+    EmptyString
   }
   private def getColumnName(expression: Expression, ctx:Context):String = {
     val name = expression.getString(ctx)
