@@ -14,6 +14,7 @@ import net.sf.jsqlparser.statement.create.table.{ColDataType, ColumnDefinition}
   * https://www.hackingnote.com/en/scala/json4s
   */
 object SpiderFileReader extends common.Logger {
+  implicit val formats = DefaultFormats
   val files = Map("data/spider/dev.json" -> "data/output/spider/dev.df.json",
     "data/spider/train_spider.json" ->"data/output/spider/train_spider.df.json",
     "data/spider/train_others.json" ->"data/output/spider/train_others.df.json")
@@ -29,6 +30,16 @@ object SpiderFileReader extends common.Logger {
         logger.info(s"The input does not exist: ${input} to ${output}")
       }
     }
+    val spider = Source.fromFile("data/output/spider/train_spider.df.json")
+    val other = Source.fromFile("data/output/spider/train_others.df.json")
+    val spider_json = parse(spider.reader()).extract[List[JObject]]
+    val other_json = parse(other.reader()).extract[List[JObject]]
+    val train = spider_json.++(other_json)
+    val target = new FileWriter("data/output/spider/train.df.json")
+    target.write(writePretty(train) + "\n")
+    target.close()
+    spider.close()
+    other.close()
   }
   def parseJSON(inPath:String, outPath:String, queryString: String = "query") = {
     implicit val formats = DefaultFormats

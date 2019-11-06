@@ -7,6 +7,6 @@ object ScalaApp {
   def main(args: Array[String]): Unit = {
     SpiderFileReader.genSparkDataFrame()
 //    SpiderFileReader.builderDatabaseFromSchema()
-    WikiSQLFileReader.genSparkDataFrame()
+//    WikiSQLFileReader.genSparkDataFrame()
   }
 }
